@@ -105,6 +105,7 @@ def sequence_content_plot(sample_data, group_lookup_dict, color_dict):
         r1r2_split = max(r1r2_split, len(R1))
 
     for s_name in sorted(sample_data.keys()):
+        paired_end = True if len(sample_data[s_name]["Reads"]) > 1 else False
         data[s_name] = {}
         R1 = sample_data[s_name]["Reads"][0]["Cycles"]
         for cycle in range(len(R1)):
@@ -115,14 +116,15 @@ def sequence_content_plot(sample_data, group_lookup_dict, color_dict):
             for base in ["a", "c", "t", "g"]:
                 data[s_name][base_no][base] = (float(data[s_name][base_no][base]) / float(tot)) * 100.0
 
-        R2 = sample_data[s_name]["Reads"][1]["Cycles"]
-        for cycle in range(len(R2)):
-            base_no = str(cycle + 1 + r1r2_split)
-            data[s_name].update({base_no: {base.lower(): R2[cycle]["BaseComposition"][base] for base in "ACTG"}})
-            data[s_name][base_no]["base"] = base_no
-            tot = sum([data[s_name][base_no][base] for base in ["a", "c", "t", "g"]])
-            for base in ["a", "c", "t", "g"]:
-                data[s_name][base_no][base] = (float(data[s_name][base_no][base]) / float(tot)) * 100.0
+        if paired_end:
+            R2 = sample_data[s_name]["Reads"][1]["Cycles"]
+            for cycle in range(len(R2)):
+                base_no = str(cycle + 1 + r1r2_split)
+                data[s_name].update({base_no: {base.lower(): R2[cycle]["BaseComposition"][base] for base in "ACTG"}})
+                data[s_name][base_no]["base"] = base_no
+                tot = sum([data[s_name][base_no][base] for base in ["a", "c", "t", "g"]])
+                for base in ["a", "c", "t", "g"]:
+                    data[s_name][base_no][base] = (float(data[s_name][base_no][base]) / float(tot)) * 100.0
     html = """<div id="fastqc_per_base_sequence_content_plot_div">
         <div class="alert alert-info">
             <span class="glyphicon glyphicon-hand-up"></span>
@@ -206,6 +208,7 @@ def plot_per_cycle_N_content(sample_data, group_lookup_dict, color_dict):
         r1r2_split = max(r1r2_split, R1_cycle_num)
 
     for s_name in sorted(sample_data.keys()):
+        paired_end = True if len(sample_data[s_name]["Reads"]) > 1 else False
         data[s_name] = {}
         R1 = sample_data[s_name]["Reads"][0]["Cycles"]
         R1_cycle_num = len(R1)
@@ -218,15 +221,16 @@ def plot_per_cycle_N_content(sample_data, group_lookup_dict, color_dict):
                     {base_no: R1[cycle]["BaseComposition"]["N"] / sum(R1[cycle]["BaseComposition"].values()) * 100.0}
                 )
 
-        R2 = sample_data[s_name]["Reads"][1]["Cycles"]
-        for cycle in range(len(R2)):
-            base_no = str(cycle + 1 + r1r2_split)
-            if sum(R2[cycle]["BaseComposition"].values()) == 0:
-                data[s_name].update({base_no: 0})
-            else:
-                data[s_name].update(
-                    {base_no: R2[cycle]["BaseComposition"]["N"] / sum(R2[cycle]["BaseComposition"].values()) * 100.0}
-                )
+        if paired_end:
+            R2 = sample_data[s_name]["Reads"][1]["Cycles"]
+            for cycle in range(len(R2)):
+                base_no = str(cycle + 1 + r1r2_split)
+                if sum(R2[cycle]["BaseComposition"].values()) == 0:
+                    data[s_name].update({base_no: 0})
+                else:
+                    data[s_name].update(
+                        {base_no: R2[cycle]["BaseComposition"]["N"] / sum(R2[cycle]["BaseComposition"].values()) * 100.0}
+                    )
 
     plot_content = data
     pconfig = {
@@ -266,7 +270,9 @@ def plot_per_read_gc_hist(sample_data, group_lookup_dict, sample_color):
     gc_hist_dict = dict()
     for s_name in sample_data.keys():
         R1_gc_counts = sample_data[s_name]["Reads"][0]["PerReadGCCountHistogram"]
-        R2_gc_counts = sample_data[s_name]["Reads"][1]["PerReadGCCountHistogram"]
+        R2_gc_counts = [0] * len(R1_gc_counts)
+        if len(sample_data[s_name]["Reads"]) > 1:
+            R2_gc_counts = sample_data[s_name]["Reads"][1]["PerReadGCCountHistogram"]
         R1R2_gc_counts = [r1 + r2 for r1, r2 in zip(R1_gc_counts, R2_gc_counts)]
         totalReads = sum(R1R2_gc_counts)
         gc_hist_dict.update({s_name: {}})
@@ -322,6 +328,7 @@ def plot_adapter_content(sample_data, group_lookup_dict, sample_color):
         r1r2_split = max(r1r2_split, R1_cycle_num)
 
     for s_name in sample_data.keys():
+        paired_end = True if len(sample_data[s_name]["Reads"]) > 1 else False
         plot_content.update({s_name: {}})
         # Read 1
         cycles = sample_data[s_name]["Reads"][0]["Cycles"]
@@ -330,11 +337,12 @@ def plot_adapter_content(sample_data, group_lookup_dict, sample_color):
             adapter_percent = cycle["PercentReadsTrimmed"]
             plot_content[s_name].update({cycle_no: adapter_percent})
         # Read 2
-        cycles = sample_data[s_name]["Reads"][1]["Cycles"]
-        for cycle in cycles:
-            cycle_no = int(cycle["Cycle"]) + r1r2_split
-            adapter_percent = cycle["PercentReadsTrimmed"]
-            plot_content[s_name].update({cycle_no: adapter_percent})
+        if paired_end:
+            cycles = sample_data[s_name]["Reads"][1]["Cycles"]
+            for cycle in cycles:
+                cycle_no = int(cycle["Cycle"]) + r1r2_split
+                adapter_percent = cycle["PercentReadsTrimmed"]
+                plot_content[s_name].update({cycle_no: adapter_percent})
     pconfig = {
         "id": "per_cycle_adapter_content",
         "title": "bases2fastq: Per Cycle Adapter Content",
