@@ -5,6 +5,7 @@ from .utils import summarize_batch_names, is_nan, find_entry, json_decode_float
 from .queries import (
     get_batch_counts,
     get_batch_density,
+    get_batch_extracellularratio,
     get_cell_count,
     get_median_cell_diameter,
     get_percent_confluency,
@@ -72,6 +73,7 @@ def plot_cell_assignment(c2s_run_data):
         get_batch_density(c2s_run_data),
         get_total_counts(c2s_run_data),
         get_batch_counts(c2s_run_data),
+        get_batch_extracellularratio(c2s_run_data)
     ]
     pconfig = {
         "data_labels": [
@@ -79,6 +81,7 @@ def plot_cell_assignment(c2s_run_data):
             {"name": "Batch Density", "ylab": "Assigned Counts K / mm2"},
             {"name": "Total Counts", "ylab": "Average Assigned Counts / Cell"},
             {"name": "Batch Counts", "ylab": "Average Assigned Counts / Cell"},
+            {"name": "Extra-cellular Ratio", "ylab": "Extra-cellular Ratio"},
         ],
         "cpswitch": False,
         "id": "cell_assignment_bar",
@@ -93,7 +96,7 @@ def plot_cell_assignment(c2s_run_data):
     for i, batch_name in enumerate(batch_names):
         cat[batch_name] = {"name": batch_name, "color": scale.get_colour(i, lighten=1)}
 
-    cats = [{"total_density": {"name": "Total Density"}}, cat, {"total_count": {"name": "Total Counts"}}, cat]
+    cats = [{"total_density": {"name": "Total Density"}}, cat, {"total_count": {"name": "Total Counts"}}, cat, cat]
 
     plot_name = "Cell Assignment Metrics"
     plot_html = bargraph.plot(plot_content, cats, pconfig=pconfig)

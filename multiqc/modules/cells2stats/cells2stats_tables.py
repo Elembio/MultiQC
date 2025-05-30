@@ -13,8 +13,8 @@ from .queries import (
     get_total_density,
     get_percent_assigned_spacer_polony,
     get_percent_mismatch_spacer_polony,
-    get_spacer_cell_assignment_status,
-    get_spacer_cell_metric_by_key
+    get_spacer_cell_metric_by_key,
+    get_batch_extracellularratio
 )
 
 
@@ -60,6 +60,7 @@ def tabulate_wells(c2s_run_data):
             get_median_cell_diameter(c2s_run_data),
             get_total_density(c2s_run_data),
             get_total_counts(c2s_run_data),
+            get_batch_extracellularratio(c2s_run_data),
         ]
     )
     headers = {}
@@ -67,9 +68,10 @@ def tabulate_wells(c2s_run_data):
         "title": "# Cells",
         "description": "The number of cells in the well",
         "min": 0,
-        "scale": "GnBu",
         "format": "{d}",
+        "scale": "GnBu"
     }
+
     headers["percent_confluency"] = {
         "title": "% Confluency",
         "scale": "GnBu",
@@ -101,6 +103,12 @@ def tabulate_wells(c2s_run_data):
     headers["total_count"] = {
         "title": "Assigned Counts / Cell",
         "description": "Total average counts per cell across all batches",
+        "min": 0,
+        "scale": "GnBu",
+    }
+    headers["extracellular_ratio"] = {
+        "title": "Extracellular Ratio",
+        "description": "Ratio of density of extra-cellular counts relative to density of intra-cellular counts",
         "min": 0,
         "scale": "GnBu",
     }
