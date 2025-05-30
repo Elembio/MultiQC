@@ -8,8 +8,14 @@ from multiqc.modules.cells2stats.cells2stats_bar_plots import (
     plot_barcoding,
     plot_cell_assignment,
     plot_controls,
+    plot_spacer_polony_assignment,
+    plot_spacer_cell_assignment,
 )
-from multiqc.modules.cells2stats.cells2stats_tables import tabulate_wells, tabulate_batches
+
+from multiqc.modules.cells2stats.utils import (
+    summarize_spacer_group_names
+)
+from multiqc.modules.cells2stats.cells2stats_tables import tabulate_wells, tabulate_batches, tabulate_spacer_wells
 
 log = logging.getLogger(__name__)
 
@@ -68,3 +74,20 @@ class MultiqcModule(BaseMultiqcModule):
                 description=description,
             )
             self.write_data_file(plot_content, anchor)
+        
+        for spacer_group_name in summarize_spacer_group_names(self.c2s_run_data):
+            log.info(f"Found {spacer_group_name} spacer group")
+            for plotting_function in [
+                tabulate_spacer_wells,
+                plot_spacer_polony_assignment,
+                plot_spacer_cell_assignment
+            ]:
+                plot_html, plot_name, anchor, description, helptext, plot_content = plotting_function(self.c2s_run_data, spacer_group_name)
+                self.add_section(
+                    anchor=anchor,
+                    name=plot_name,
+                    helptext=helptext,
+                    plot=plot_html,
+                    description=description,
+                )
+                self.write_data_file(plot_content, anchor)

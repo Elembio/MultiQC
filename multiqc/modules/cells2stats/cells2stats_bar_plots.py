@@ -13,6 +13,10 @@ from .queries import (
     get_percent_mismatch,
     get_total_counts,
     get_total_density,
+    get_percent_assigned_spacer_polony,
+    get_percent_mismatch_spacer_polony,
+    get_spacer_cell_assignment_status,
+    get_spacer_cell_metric_by_key
 )
 
 
@@ -172,7 +176,7 @@ def plot_controls(c2s_run_data):
                         control_data = find_entry(batch_data.get("ControlTargets", []), "ControlType", control, {})
                         val = json_decode_float(control_data.get("AssignedCountPerMM2", float("nan")))
                         if not is_nan(val):
-                            control_content.setdefault(f"{run_name} {well_location}", {})[batch_name] = val
+                            control_content.setdefault(f"{run_name} {well_location}", {})[batch_name] = val / 1000.0  # Convert to K/mm2
         plot_content.append(control_content)
 
     pconfig = {
@@ -201,3 +205,94 @@ def plot_controls(c2s_run_data):
     helptext = """Plot density of assigned counts per batch for controls."""
 
     return plot_html, plot_name, anchor, description, helptext, plot_content
+
+
+def plot_spacer_polony_assignment(c2s_run_data, spacer_group_name):
+    """ "
+    Generate plots related to cell segmentation metrics from the cells2stats report
+    """
+    plot_content = []
+    plot_content.append(get_percent_assigned_spacer_polony(c2s_run_data, spacer_group_name))
+    plot_content.append(get_percent_mismatch_spacer_polony(c2s_run_data, spacer_group_name))
+
+    pconfig = {
+        "data_labels": [
+            {"name": "Percent Assigned", "ylab": "Percent Assigned"},
+            {"name": "Percent Mismatch", "ylab": "Percent Mismatch"},
+        ],
+        "cpswitch": False,
+        "id": f"{spacer_group_name}_spacer_polony_bar",
+        "title": f"cells2stats: {spacer_group_name} spacer polony QC metrics plot",
+        "ylab": "QC",
+        "ymax": 100,
+    }
+
+    cats = [
+        {"percent_assigned": {"name": "Percent Assigned"}},
+        {"percent_mismatch": {"name": "Percent Mismatch"}}
+    ]
+
+    plot_name = f"{spacer_group_name} Metrics"
+    plot = bargraph.plot(plot_content, cats, pconfig=pconfig)
+    anchor = f"{spacer_group_name}_spacer_polony_plot"
+    description = f"Bar plots of {spacer_group_name} polony assignment metrics"
+    helptext = """Plot percent assigned and percent mismatch for assignment of polonies to spacers."""
+
+    return plot, plot_name, anchor, description, helptext, plot_content
+
+def plot_spacer_cell_assignment(c2s_run_data, spacer_group_name):
+    """ "
+    Generate plots related to cell assignment performance metrics from the cells2stats report
+    """
+
+    plot_content = [
+        get_spacer_cell_assignment_status(c2s_run_data, spacer_group_name),
+        get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "AssignedCountsPerMM2", 1000),
+        get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "MeanAssignedCountPerCell"),
+        get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "MedianMaxSpacerCount"),
+        get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "MeanUniqueSpacersPerCell"),
+        get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "ExtraCellularRatio"),
+        get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentSpacerDropout"),
+    ]
+    pconfig = {
+        "data_labels": [
+            {"name": "Cell Assignment Status", "ylab": "Percent Cells"},
+            {"name": "Assigned Density", "ylab": "Assigned Counts K / mm2"},
+            {"name": "Mean Assigned Count", "ylab": "Mean Assigned Counts / Cell"},
+            {"name": "Median Max Spacer Count", "ylab": "Median Max Spacer Count"},
+            {"name": "Mean Unique Spacers", "ylab": "Mean Unique Spacers / Cell"},
+            {"name": "Extra Cellular Ratio", "ylab": "Extra Cellular Ratio"},
+            {"name": "Percent Spacer Dropout", "ylab": "Percent Spacer Dropout"},
+        ],
+        "cpswitch": False,
+        "id": f"{spacer_group_name}_cell_spacer_assignment_bar",
+        "stacking": "normal",
+        "title": "cells2stats: Spacer cell assignment metrics plot",
+        "ylab": "QC",
+    }
+
+    scale = mqc_colour.mqc_colour_scale("GnBu", 0, 4)
+
+    cat = {}
+    cat["PercentAssignedPureCells"] = {"name": "Percent Assigned Pure Cells", "color": scale.get_colour(0, lighten=1)}
+    cat["PercentAssignedMixedCells"] = {"name": "Percent Assigned Mixed Cells", "color": scale.get_colour(1, lighten=1)}
+    cat["PercentUnassignedMixedCells"] = {"name": "Percent Unassigned Mixed Cells", "color": scale.get_colour(2, lighten=1)}
+    cat["PercentUnassignedLowCountCells"] = {"name": "Percent Unassigned Low Count Cells", "color": scale.get_colour(3, lighten=1)}
+    
+    cats = [cat,]
+    cats.append({"AssignedCountsPerMM2": {"name": "Assigned Density"}})
+    cats.append({"MeanAssignedCountPerCell": {"name": "Mean Assigned Count"}})
+    cats.append({"MedianMaxSpacerCount": {"name": "Median Max Spacer Count"}})
+    cats.append({"MeanUniqueSpacersPerCell": {"name": "Mean Unique Spacers"}})
+    cats.append({"ExtraCellularRatio": {"name": "Extra Cellular Ratio"}})
+    cats.append({"PercentSpacerDropout": {"name": "Percent Spacer Dropout"}})
+
+    plot_name = f"{spacer_group_name} Spacer Cell Assignment Metrics"
+    plot_html = bargraph.plot(plot_content, cats, pconfig=pconfig)
+    anchor = f"{spacer_group_name}_spacer_cell_assignment_plot"
+    description = "Bar plots of spacer cell assignment metrics"
+    helptext = """Plot statistics related to assignment of spacers to cells."""
+
+    return plot_html, plot_name, anchor, description, helptext, plot_content
+
+

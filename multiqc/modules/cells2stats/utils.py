@@ -49,3 +49,19 @@ def summarize_batch_names(c2s_run_data):
                     batch_names.add(batch_data["BatchName"])
 
     return sorted(batch_names)
+
+
+
+def summarize_spacer_group_names(c2s_run_data):
+    """
+    Generate a list of spacer group names from the cells2stats report
+    """
+    spacer_group_names = set()
+    for run_name in c2s_run_data:
+        run_data = c2s_run_data[run_name]
+        for batch_data in run_data.get("SpacerStats", {}).get("Batches", []):
+            for spacer_group_data in batch_data.get("SpacerGroups", []):
+                spacer_group_name = spacer_group_data.get("GroupName", "")
+                if spacer_group_name != "":
+                    spacer_group_names.add(spacer_group_name)
+    return sorted(spacer_group_names)

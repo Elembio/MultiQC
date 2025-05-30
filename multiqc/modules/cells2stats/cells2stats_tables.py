@@ -11,6 +11,10 @@ from .queries import (
     get_percent_nucleated_cells,
     get_total_counts,
     get_total_density,
+    get_percent_assigned_spacer_polony,
+    get_percent_mismatch_spacer_polony,
+    get_spacer_cell_assignment_status,
+    get_spacer_cell_metric_by_key
 )
 
 
@@ -112,6 +116,131 @@ def tabulate_wells(c2s_run_data):
     plot_html = table.plot(plot_content, headers, pconfig=pconfig)
     anchor = "well_metrics"
     description = "Table of general well QC metrics"
+    helptext = """Provides overall metrics summarizing the performance of each well"""
+    return plot_html, plot_name, anchor, description, helptext, plot_content
+
+def tabulate_spacer_wells(c2s_run_data, spacer_group_name):
+    """
+    Generate a table of well metrics from the cells2stats report
+    """
+    plot_content = merge_well_dictionaries(
+        [
+            get_percent_assigned_spacer_polony(c2s_run_data, spacer_group_name),
+            get_percent_mismatch_spacer_polony(c2s_run_data, spacer_group_name),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentAssignedPureCells"),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentAssignedMixedCells"),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentUnassignedMixedCells"),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentUnassignedLowCountCells"),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "AssignedCountsPerMM2", 1000),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "MeanAssignedCountPerCell"),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "MedianMaxSpacerCount"),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "MeanUniqueSpacersPerCell"),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "ExtraCellularRatio"),
+            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentSpacerDropout"),
+        ]
+    )
+    headers = {}
+    headers["percent_assigned"] = {
+        "title": "% Assigned",
+        "scale": "GnBu",
+        "max": 100,
+        "min": 0,
+        "suffix": "%",
+    }
+    headers["percent_mismatch"] = {
+        "title": "% Mismatch",
+        "scale": "GnBu",
+        "max": 100,
+        "min": 0,
+        "suffix": "%",
+    }
+    headers["PercentAssignedPureCells"] = {
+        "title": "% Assigned Pure Cells",
+        "description": "Percentage of cells with a single spacer assigned",
+        "scale": "GnBu",
+        "max": 100,
+        "min": 0,
+        "suffix": "%",
+    }
+    headers["PercentAssignedMixedCells"] = {
+        "title": "% Assigned Mixed Cells",
+        "description": "Percentage of cells with multiple spacers assigned",
+        "scale": "GnBu",
+        "max": 100,
+        "min": 0,
+        "suffix": "%",
+    }
+    headers["PercentUnassignedMixedCells"] = {
+        "title": "% Unassigned Mixed Cells",
+        "description": "Percentage of cells with no spacer assigned, but multiple spacers in the well",
+        "scale": "GnBu",
+        "max": 100,
+        "min": 0,
+        "suffix": "%",
+    }
+    headers["PercentUnassignedLowCountCells"] = {
+        "title": "% Unassigned Low Count Cells",
+        "description": "Percentage of cells with no spacer assigned, but low counts in the well",
+        "scale": "GnBu",
+        "max": 100,
+        "min": 0,
+        "suffix": "%",
+    }
+    headers["AssignedCountsPerMM2"] = {
+        "title": "Assigned Counts K / mm2",
+        "description": "Total density of assigned spacer counts per mm2 of cell area",
+        "min": 0,
+        "scale": "GnBu",
+        "suffix": "K",
+    }
+    headers["MeanAssignedCountPerCell"] = {
+        "title": "Assigned Counts / Cell",
+        "description": "Average assigned spacer counts per cell",
+        "min": 0,
+        "scale": "GnBu",
+        "suffix": "",
+    }
+    headers["MedianMaxSpacerCount"] = {
+        "title": "Median Max Spacer Count",
+        "description": "Median maximum spacer count for cells in the well",
+        "min": 0,
+        "scale": "GnBu",
+        "suffix": "",
+    }
+    headers["MeanUniqueSpacersPerCell"] = {
+        "title": "Mean Unique Spacers / Cell",
+        "description": "Mean number of unique spacers per cell in the well",
+        "min": 0,
+        "scale": "GnBu",
+        "suffix": "",
+    }
+    headers["ExtraCellularRatio"] = {
+        "title": "Extra Cellular Ratio",
+        "description": "Ratio of extracellular spacer counts to total spacer counts in the well",
+        "min": 0,
+        "scale": "GnBu",
+        "suffix": "",
+    }
+    headers["PercentSpacerDropout"] = {
+        "title": "% Spacer Dropout",
+        "description": "Percentage of cells with no spacer assigned, but spacer polonies present in the well",
+        "scale": "GnBu",
+        "max": 100,
+        "min": 0,
+        "suffix": "%",
+    }
+
+    pconfig = {
+        "title": f"cells2stats: {spacer_group_name} Well QC metrics",
+        "col1_header": "Spacer Group / Well",
+        "id": f"{spacer_group_name}_spacer_metrics_table",
+        "ylab": "QC",
+    }
+
+    plot_name = f"{spacer_group_name} Well QC metrics table"
+    plot_html = table.plot(plot_content, headers, pconfig=pconfig)
+    anchor = f"{spacer_group_name}_spacer_well_metrics"
+    description = "Table of general spacer well QC metrics"
     helptext = """Provides overall metrics summarizing the performance of each well"""
     return plot_html, plot_name, anchor, description, helptext, plot_content
 
