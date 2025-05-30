@@ -60,7 +60,6 @@ def tabulate_wells(c2s_run_data):
             get_median_cell_diameter(c2s_run_data),
             get_total_density(c2s_run_data),
             get_total_counts(c2s_run_data),
-            get_batch_extracellularratio(c2s_run_data),
         ]
     )
     headers = {}
@@ -103,12 +102,6 @@ def tabulate_wells(c2s_run_data):
     headers["total_count"] = {
         "title": "Assigned Counts / Cell",
         "description": "Total average counts per cell across all batches",
-        "min": 0,
-        "scale": "GnBu",
-    }
-    headers["extracellular_ratio"] = {
-        "title": "Extracellular Ratio",
-        "description": "Ratio of density of extra-cellular counts relative to density of intra-cellular counts",
         "min": 0,
         "scale": "GnBu",
     }
@@ -228,6 +221,7 @@ def tabulate_spacer_wells(c2s_run_data, spacer_group_name):
         "min": 0,
         "scale": "GnBu",
         "suffix": "",
+        "format": "{:.2f}",
     }
     headers["PercentSpacerDropout"] = {
         "title": "% Spacer Dropout",
@@ -295,8 +289,9 @@ def tabulate_batches(c2s_run_data):
             get_batch_counts(c2s_run_data),
             get_percent_assigned(c2s_run_data),
             get_percent_mismatch(c2s_run_data),
+            get_batch_extracellularratio(c2s_run_data),
         ],
-        ["batch_density", "batch_count", "percent_assigned", "percent_mismatch"],
+        ["batch_density", "batch_count", "percent_assigned", "percent_mismatch", "extracellular_ratio"],
     )
 
     headers = {}
@@ -324,6 +319,13 @@ def tabulate_batches(c2s_run_data):
         "description": "Percent of assigned polonies assigned with a mismatch",
         "scale": "GnBu",
         "min": 0,
+    }
+    headers["extracellular_ratio"] = {
+        "title": "Extracellular Ratio",
+        "description": "Ratio of density of extra-cellular counts relative to density of intra-cellular counts",
+        "min": 0,
+        "scale": "GnBu",
+        "format": "{:.2f}",
     }
 
     pconfig = {

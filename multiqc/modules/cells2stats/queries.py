@@ -130,6 +130,24 @@ def get_batch_counts(c2s_run_data):
                         result.setdefault(f"{run_name} {well_location}", {})[batch_name] = val
     return result
 
+def get_batch_extracellularratio(c2s_run_data):
+    """
+    Get the extra-cellular ratio for each batch in each well in the run
+    """
+    batch_names = summarize_batch_names(c2s_run_data)
+    result = {}
+    for run_name in c2s_run_data:
+        run_data = c2s_run_data[run_name]
+        for well_data in run_data.get("CytoStats", {}).get("Wells", []):
+            well_location = well_data.get("WellLocation", "")
+            if well_location != "":
+                for batch_name in batch_names:
+                    batch_data = find_entry(well_data.get("Batches", []), "BatchName", batch_name, {})
+                    val = json_decode_float(batch_data.get("ExtraCellularRatio", float("nan")))
+                    if not is_nan(val):
+                        result.setdefault(f"{run_name} {well_location}", {})[batch_name] = val
+    return result
+
 
 def get_percent_assigned(c2s_run_data):
     """
