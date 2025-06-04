@@ -80,7 +80,7 @@ def tabulate_wells(c2s_run_data):
     }
     headers["percent_nucleated_cells"] = {
         "title": "% Nucleated Cells",
-        "description": "The percentage of cells with a segmented nucleus",
+        "description": "The percent of cells with a segmented nucleus",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -113,7 +113,7 @@ def tabulate_wells(c2s_run_data):
         "ylab": "QC",
     }
 
-    plot_name = "Well QC Metrics Table"
+    plot_name = "Well Cell Paint and Barcoding QC Metrics Table"
     plot_html = table.plot(plot_content, headers, pconfig=pconfig)
     anchor = "well_metrics"
     description = "Table of cell paint and barocoding well QC metrics"
@@ -157,7 +157,7 @@ def tabulate_target_wells(c2s_run_data, target_site_name):
     }
     headers["PercentAssignedPureCells"] = {
         "title": "% Assigned Pure Cells",
-        "description": "Percentage of cells assigned to a target with a single target assigned to the cell",
+        "description": "Percent of cells assigned to a target with one target present",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -165,7 +165,7 @@ def tabulate_target_wells(c2s_run_data, target_site_name):
     }
     headers["PercentAssignedMixedCells"] = {
         "title": "% Assigned Mixed Cells",
-        "description": "Percentage of cells assigned to a target with multiple targets assigned to the cell",
+        "description": "Percent of cells assigned to a target with greater than one target present",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -173,7 +173,7 @@ def tabulate_target_wells(c2s_run_data, target_site_name):
     }
     headers["PercentUnassignedMixedCells"] = {
         "title": "% Unassigned Mixed Cells",
-        "description": "Percentage of cells not assigned to a target with multiple targets assigned to the cell",
+        "description": "Percent of cells not assigned to a target with greater than one target present",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -181,7 +181,7 @@ def tabulate_target_wells(c2s_run_data, target_site_name):
     }
     headers["PercentUnassignedLowCountCells"] = {
         "title": "% Unassigned Low Count Cells",
-        "description": "Percentage of cells not assigned to a target with low count of targets assigned to the cell",
+        "description": "Percent of cells not assigned to a target with zero or one targets present",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -203,7 +203,7 @@ def tabulate_target_wells(c2s_run_data, target_site_name):
     }
     headers["MedianAbundantTargetCount"] = {
         "title": "Median Abundant Target Count",
-        "description": "Median abundant target count for cells in the well",
+        "description": "Median most abundant target count for cells in the well",
         "min": 0,
         "scale": "GnBu",
         "suffix": "",
@@ -216,8 +216,8 @@ def tabulate_target_wells(c2s_run_data, target_site_name):
         "suffix": "",
     }
     headers["ExtraCellularRatio"] = {
-        "title": "Extra Cellular Ratio",
-        "description": "Ratio of extracellular target counts to total target counts in the well",
+        "title": "Extracellular Ratio",
+        "description": "Ratio of density of extra-cellular counts to density of intra-cellular counts",
         "min": 0,
         "scale": "GnBu",
         "suffix": "",
@@ -225,7 +225,7 @@ def tabulate_target_wells(c2s_run_data, target_site_name):
     }
     headers["PercentTargetDropout"] = {
         "title": "% Target Dropout",
-        "description": "Percentage of cells with no target assigned, but target polonies present in the well",
+        "description": "Percent of targets not assigned to any cell",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -239,7 +239,7 @@ def tabulate_target_wells(c2s_run_data, target_site_name):
         "ylab": "QC",
     }
 
-    plot_name = f"{target_site_name} target site well QC metrics table"
+    plot_name = f"{target_site_name} Target Site Well QC Metrics Table"
     plot_html = table.plot(plot_content, headers, pconfig=pconfig)
     anchor = f"{target_site_name}_target_well_metrics"
     description = f"Table of well QC metrics for target site {target_site_name}"
@@ -322,7 +322,7 @@ def tabulate_batches(c2s_run_data):
     }
     headers["extracellular_ratio"] = {
         "title": "Extracellular Ratio",
-        "description": "Ratio of density of extra-cellular counts relative to density of intra-cellular counts",
+        "description": "Ratio of density of extra-cellular counts to density of intra-cellular counts",
         "min": 0,
         "scale": "GnBu",
         "format": "{:.2f}",
@@ -338,6 +338,6 @@ def tabulate_batches(c2s_run_data):
     plot_name = "Barcoding Batch QC Metrics Table"
     plot_html = table.plot(plot_content, headers, pconfig=pconfig)
     anchor = "batch_metrics"
-    description = "Table of general barcoding batch QC metrics"
+    description = "Table of barcoding batch QC metrics"
     helptext = """Provides overall metrics summarizing the performance of each barcoding batch per well"""
     return plot_html, plot_name, anchor, description, helptext, plot_content
