@@ -11,9 +11,9 @@ from .queries import (
     get_percent_nucleated_cells,
     get_total_counts,
     get_total_density,
-    get_percent_assigned_spacer_polony,
-    get_percent_mismatch_spacer_polony,
-    get_spacer_cell_metric_by_key,
+    get_percent_assigned_target_polony,
+    get_percent_mismatch_target_polony,
+    get_target_cell_metric_by_key,
     get_batch_extracellularratio
 )
 
@@ -95,49 +95,49 @@ def tabulate_wells(c2s_run_data):
     }
     headers["total_density"] = {
         "title": "Assigned Counts K / mm2",
-        "description": "Total density of assigned counts per mm2 of cell area across all batches",
+        "description": "Total density of assigned counts per mm2 of cell area across all barcoding batches",
         "min": 0,
         "scale": "GnBu",
     }
     headers["total_count"] = {
         "title": "Assigned Counts / Cell",
-        "description": "Total average counts per cell across all batches",
+        "description": "Total average counts per cell across all barcoding batches",
         "min": 0,
         "scale": "GnBu",
     }
 
     pconfig = {
-        "title": "cells2stats: Well QC metrics",
+        "title": "cells2stats: Well cell paint and barcoding QC metrics",
         "col1_header": "Run / Well",
         "id": "well_metrics_table",
         "ylab": "QC",
     }
 
-    plot_name = "Well QC metrics table"
+    plot_name = "Well QC Metrics Table"
     plot_html = table.plot(plot_content, headers, pconfig=pconfig)
     anchor = "well_metrics"
-    description = "Table of general well QC metrics"
-    helptext = """Provides overall metrics summarizing the performance of each well"""
+    description = "Table of cell paint and barocoding well QC metrics"
+    helptext = """Provides cell paint and barocding metrics summarizing the performance of each well"""
     return plot_html, plot_name, anchor, description, helptext, plot_content
 
-def tabulate_spacer_wells(c2s_run_data, spacer_group_name):
+def tabulate_target_wells(c2s_run_data, target_site_name):
     """
     Generate a table of well metrics from the cells2stats report
     """
     plot_content = merge_well_dictionaries(
         [
-            get_percent_assigned_spacer_polony(c2s_run_data, spacer_group_name),
-            get_percent_mismatch_spacer_polony(c2s_run_data, spacer_group_name),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentAssignedPureCells"),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentAssignedMixedCells"),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentUnassignedMixedCells"),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentUnassignedLowCountCells"),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "AssignedCountsPerMM2", 1000),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "MeanAssignedCountPerCell"),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "MedianMaxSpacerCount"),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "MeanUniqueSpacersPerCell"),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "ExtraCellularRatio"),
-            get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, "PercentSpacerDropout"),
+            get_percent_assigned_target_polony(c2s_run_data, target_site_name),
+            get_percent_mismatch_target_polony(c2s_run_data, target_site_name),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "PercentAssignedPureCells"),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "PercentAssignedMixedCells"),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "PercentUnassignedMixedCells"),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "PercentUnassignedLowCountCells"),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "AssignedCountsPerMM2", 1000),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "MeanAssignedCountPerCell"),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "MedianAbundantTargetCount"),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "MeanUniqueTargetsPerCell"),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "ExtraCellularRatio"),
+            get_target_cell_metric_by_key(c2s_run_data, target_site_name, "PercentTargetDropout"),
         ]
     )
     headers = {}
@@ -157,7 +157,7 @@ def tabulate_spacer_wells(c2s_run_data, spacer_group_name):
     }
     headers["PercentAssignedPureCells"] = {
         "title": "% Assigned Pure Cells",
-        "description": "Percentage of cells with a single spacer assigned",
+        "description": "Percentage of cells assigned to a target with a single target assigned to the cell",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -165,7 +165,7 @@ def tabulate_spacer_wells(c2s_run_data, spacer_group_name):
     }
     headers["PercentAssignedMixedCells"] = {
         "title": "% Assigned Mixed Cells",
-        "description": "Percentage of cells with multiple spacers assigned",
+        "description": "Percentage of cells assigned to a target with multiple targets assigned to the cell",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -173,7 +173,7 @@ def tabulate_spacer_wells(c2s_run_data, spacer_group_name):
     }
     headers["PercentUnassignedMixedCells"] = {
         "title": "% Unassigned Mixed Cells",
-        "description": "Percentage of cells with no spacer assigned, but multiple spacers in the well",
+        "description": "Percentage of cells not assigned to a target with multiple targets assigned to the cell",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -181,7 +181,7 @@ def tabulate_spacer_wells(c2s_run_data, spacer_group_name):
     }
     headers["PercentUnassignedLowCountCells"] = {
         "title": "% Unassigned Low Count Cells",
-        "description": "Percentage of cells with no spacer assigned, but low counts in the well",
+        "description": "Percentage of cells not assigned to a target with low count of targets assigned to the cell",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -189,43 +189,43 @@ def tabulate_spacer_wells(c2s_run_data, spacer_group_name):
     }
     headers["AssignedCountsPerMM2"] = {
         "title": "Assigned Counts K / mm2",
-        "description": "Total density of assigned spacer counts per mm2 of cell area",
+        "description": "Total density of assigned target counts per mm2 of cell area",
         "min": 0,
         "scale": "GnBu",
         "suffix": "K",
     }
     headers["MeanAssignedCountPerCell"] = {
         "title": "Assigned Counts / Cell",
-        "description": "Average assigned spacer counts per cell",
+        "description": "Average assigned target counts per cell",
         "min": 0,
         "scale": "GnBu",
         "suffix": "",
     }
-    headers["MedianMaxSpacerCount"] = {
-        "title": "Median Max Spacer Count",
-        "description": "Median maximum spacer count for cells in the well",
+    headers["MedianAbundantTargetCount"] = {
+        "title": "Median Abundant Target Count",
+        "description": "Median abundant target count for cells in the well",
         "min": 0,
         "scale": "GnBu",
         "suffix": "",
     }
-    headers["MeanUniqueSpacersPerCell"] = {
-        "title": "Mean Unique Spacers / Cell",
-        "description": "Mean number of unique spacers per cell in the well",
+    headers["MeanUniqueTargetsPerCell"] = {
+        "title": "Mean Unique Targets / Cell",
+        "description": "Mean number of unique targets per cell in the well",
         "min": 0,
         "scale": "GnBu",
         "suffix": "",
     }
     headers["ExtraCellularRatio"] = {
         "title": "Extra Cellular Ratio",
-        "description": "Ratio of extracellular spacer counts to total spacer counts in the well",
+        "description": "Ratio of extracellular target counts to total target counts in the well",
         "min": 0,
         "scale": "GnBu",
         "suffix": "",
         "format": "{:.2f}",
     }
-    headers["PercentSpacerDropout"] = {
-        "title": "% Spacer Dropout",
-        "description": "Percentage of cells with no spacer assigned, but spacer polonies present in the well",
+    headers["PercentTargetDropout"] = {
+        "title": "% Target Dropout",
+        "description": "Percentage of cells with no target assigned, but target polonies present in the well",
         "scale": "GnBu",
         "max": 100,
         "min": 0,
@@ -233,17 +233,17 @@ def tabulate_spacer_wells(c2s_run_data, spacer_group_name):
     }
 
     pconfig = {
-        "title": f"cells2stats: {spacer_group_name} Well QC metrics",
-        "col1_header": "Spacer Group / Well",
-        "id": f"{spacer_group_name}_spacer_metrics_table",
+        "title": f"cells2stats: {target_site_name} target site well QC metrics",
+        "col1_header": "Target Group / Well",
+        "id": f"{target_site_name}_target_metrics_table",
         "ylab": "QC",
     }
 
-    plot_name = f"{spacer_group_name} Well QC metrics table"
+    plot_name = f"{target_site_name} target site well QC metrics table"
     plot_html = table.plot(plot_content, headers, pconfig=pconfig)
-    anchor = f"{spacer_group_name}_spacer_well_metrics"
-    description = "Table of general spacer well QC metrics"
-    helptext = """Provides overall metrics summarizing the performance of each well"""
+    anchor = f"{target_site_name}_target_well_metrics"
+    description = f"Table of well QC metrics for target site {target_site_name}"
+    helptext = f"Provides metrics summarizing the performance of each well for target site {target_site_name}"
     return plot_html, plot_name, anchor, description, helptext, plot_content
 
 
@@ -297,13 +297,13 @@ def tabulate_batches(c2s_run_data):
     headers = {}
     headers["batch_density"] = {
         "title": "Assigned Counts K / mm2",
-        "description": "Assigned counts per mm2 for each batch in the well",
+        "description": "Assigned counts per mm2 for each barcoding batch in the well",
         "min": 0,
         "scale": "GnBu",
     }
     headers["batch_count"] = {
         "title": "Assigned Counts / Cell",
-        "description": "Average assigned counts per cell for each batch in the well",
+        "description": "Average assigned counts per cell for each barcoding batch in the well",
         "scale": "GnBu",
         "min": 0,
     }
@@ -329,15 +329,15 @@ def tabulate_batches(c2s_run_data):
     }
 
     pconfig = {
-        "title": "cells2stats: Batch QC metrics",
+        "title": "cells2stats: Barcodin batch QC metrics",
         "col1_header": "Run / Well / Batch",
         "id": "batch_metrics_table",
         "ylab": "QC",
     }
 
-    plot_name = "Batch QC metrics table"
+    plot_name = "Barcoding Batch QC Metrics Table"
     plot_html = table.plot(plot_content, headers, pconfig=pconfig)
     anchor = "batch_metrics"
-    description = "Table of general batch QC metrics"
-    helptext = """Provides overall metrics summarizing the performance of each batch per well"""
+    description = "Table of general barcoding batch QC metrics"
+    helptext = """Provides overall metrics summarizing the performance of each barcoding batch per well"""
     return plot_html, plot_name, anchor, description, helptext, plot_content

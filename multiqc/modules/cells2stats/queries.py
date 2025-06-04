@@ -186,30 +186,30 @@ def get_percent_mismatch(c2s_run_data):
                         result.setdefault(f"{run_name} {well_location}", {})[batch_name] = val
     return result
 
-def get_percent_assigned_spacer_polony(c2s_run_data, spacer_group_name):
+def get_percent_assigned_target_polony(c2s_run_data, target_site_name):
     result = {}
     for run_name in c2s_run_data:
         run_data = c2s_run_data[run_name]
-        for batch_data in run_data.get("SpacerStats", {}).get("Batches", []):
+        for batch_data in run_data.get("TargetStats", {}).get("Batches", []):
             for well_data in batch_data.get("Wells", []):
-                for spacer_group_data in well_data.get("SpacerGroups", []):
-                    if spacer_group_data.get("GroupName", "") == spacer_group_name:
-                        value = json_decode_float(spacer_group_data.get("PolonyAssignmentStats", {}).get("PercentAssigned", float("nan")))
+                for target_site_data in well_data.get("TargetSites", []):
+                    if target_site_data.get("TargetSiteName", "") == target_site_name:
+                        value = json_decode_float(target_site_data.get("PolonyAssignmentStats", {}).get("PercentAssigned", float("nan")))
                         if not is_nan(value) and value > 0:
                             result.setdefault(f"{run_name} {well_data['WellLocation']}", {})["percent_assigned"] = value
                         else:
                             result.setdefault(f"{run_name} {well_data['WellLocation']}", {})["percent_assigned"] = small_value
     return result
 
-def get_percent_mismatch_spacer_polony(c2s_run_data, spacer_group_name):
+def get_percent_mismatch_target_polony(c2s_run_data, target_site_name):
     result = {}
     for run_name in c2s_run_data:
         run_data = c2s_run_data[run_name]
-        for batch_data in run_data.get("SpacerStats", {}).get("Batches", []):
+        for batch_data in run_data.get("TargetStats", {}).get("Batches", []):
             for well_data in batch_data.get("Wells", []):
-                for spacer_group_data in well_data.get("SpacerGroups", []):
-                    if spacer_group_data.get("GroupName", "") == spacer_group_name:
-                        value = json_decode_float(spacer_group_data.get("PolonyAssignmentStats", {}).get("PercentMismatch", float("nan")))
+                for target_site_data in well_data.get("TargetSites", []):
+                    if target_site_data.get("TargetSiteName", "") == target_site_name:
+                        value = json_decode_float(target_site_data.get("PolonyAssignmentStats", {}).get("PercentMismatch", float("nan")))
                         if not is_nan(value) and value > 0:
                             result.setdefault(f"{run_name} {well_data['WellLocation']}", {})["percent_mismatch"] = value
                         else:
@@ -219,17 +219,15 @@ def get_percent_mismatch_spacer_polony(c2s_run_data, spacer_group_name):
 
 
 
-def get_spacer_cell_assignment_status(c2s_run_data, spacer_group_name):
-    """
-    spacer cell assignment"""
+def get_target_cell_assignment_status(c2s_run_data, target_site_name):
     result = {}
     for run_name in c2s_run_data:
         run_data = c2s_run_data[run_name]
-        for batch_data in run_data.get("SpacerStats", {}).get("Batches", []):
+        for batch_data in run_data.get("TargetStats", {}).get("Batches", []):
             for well_data in batch_data.get("Wells", []):
-                for spacer_group_data in well_data.get("SpacerGroups", []):
-                    if spacer_group_data.get("GroupName", "") == spacer_group_name:
-                        cell_assignment_data = spacer_group_data.get("CellAssignmentStats", {})
+                for target_site_data in well_data.get("TargetSites", []):
+                    if target_site_data.get("TargetSiteName", "") == target_site_name:
+                        cell_assignment_data = target_site_data.get("CellAssignmentStats", {})
                         for key in ["PercentAssignedPureCells", "PercentAssignedMixedCells", "PercentUnassignedMixedCells", "PercentUnassignedLowCountCells"]:
                             val = json_decode_float(cell_assignment_data.get(key, float("nan")))
                             if not is_nan(val) and val > 0:
@@ -238,43 +236,18 @@ def get_spacer_cell_assignment_status(c2s_run_data, spacer_group_name):
                                 result.setdefault(f"{run_name} {well_data['WellLocation']}", {})[key] = small_value
     return result
 
-def get_spacer_cell_metric_by_key(c2s_run_data, spacer_group_name, key, factor = 1.0):
+def get_target_cell_metric_by_key(c2s_run_data, target_site_name, key, factor = 1.0):
     result = {}
     for run_name in c2s_run_data:
         run_data = c2s_run_data[run_name]
-        for batch_data in run_data.get("SpacerStats", {}).get("Batches", []):
+        for batch_data in run_data.get("TargetStats", {}).get("Batches", []):
             for well_data in batch_data.get("Wells", []):
-                for spacer_group_data in well_data.get("SpacerGroups", []):
-                    if spacer_group_data.get("GroupName", "") == spacer_group_name:
-                        value = json_decode_float(spacer_group_data.get("CellAssignmentStats", {}).get(key, float("nan")))
+                for target_site_data in well_data.get("TargetSites", []):
+                    if target_site_data.get("TargetSiteName", "") == target_site_name:
+                        value = json_decode_float(target_site_data.get("CellAssignmentStats", {}).get(key, float("nan")))
                         if not is_nan(value) and value > 0:
                             result.setdefault(f"{run_name} {well_data['WellLocation']}", {})[key] = value / factor
                         else:
                             result.setdefault(f"{run_name} {well_data['WellLocation']}", {})[key] = small_value
     return result
 
-
-
-    # "SpacerStats": {
-    #     "Batches": [
-    #         {
-    #             "BatchName": "B02",
-    #             "SpacerGroups": [
-    #                 {
-    #                     "GroupName": "MCF-7",
-    #                     "CellAssignmentStats": {
-    #                         "PercentAssignedPureCells": 3.048121425997949,
-    #                         "PercentAssignedMixedCells": 2.4133848205185053,
-    #                         "PercentUnassignedMixedCells": 0.7312750776772874,
-    #                         "PercentUnassignedLowCountCells": 1.0950264980399764,
-    #                         "AssignedCountsPerMM2": 0.0003228037689836166,
-    #                         "MeanAssignedCountPerCell": 0.767860387200877,
-    #                         "MedianMaxSpacerCount": 9.0,
-    #                         "MeanUniqueSpacersPerCell": 1.6691399824706743,
-    #                         "ExtraCellularRatio": 0.0039840009036781095,
-    #                         "PercentSpacerDropout": 5.877268798617113
-    #                     },
-    #                     "PolonyAssignmentStats": {
-    #                         "PercentAssigned": 30.04947425306522,
-    #                         "PercentMismatch": 84.41735732106471,
-    #                         "UnassignedSequences": [

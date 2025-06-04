@@ -52,16 +52,16 @@ def summarize_batch_names(c2s_run_data):
 
 
 
-def summarize_spacer_group_names(c2s_run_data):
+def summarize_target_site_names(c2s_run_data):
     """
-    Generate a list of spacer group names from the cells2stats report
+    Generate a list of target site names from the cells2stats report
     """
-    spacer_group_names = set()
+    target_site_names = set()
     for run_name in c2s_run_data:
         run_data = c2s_run_data[run_name]
-        for batch_data in run_data.get("SpacerStats", {}).get("Batches", []):
-            for spacer_group_data in batch_data.get("SpacerGroups", []):
-                spacer_group_name = spacer_group_data.get("GroupName", "")
-                if spacer_group_name != "":
-                    spacer_group_names.add(spacer_group_name)
-    return sorted(spacer_group_names)
+        for batch_data in run_data.get("TargetStats", {}).get("Batches", []):
+            for target_site_data in batch_data.get("TargetSites", []):
+                target_site_name = target_site_data.get("TargetSiteName", "")
+                if target_site_name != "":
+                    target_site_names.add(target_site_name)
+    return sorted(target_site_names)
