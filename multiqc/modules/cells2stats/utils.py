@@ -51,7 +51,6 @@ def summarize_batch_names(c2s_run_data):
     return sorted(batch_names)
 
 
-
 def summarize_target_site_names(c2s_run_data):
     """
     Generate a list of target site names from the cells2stats report

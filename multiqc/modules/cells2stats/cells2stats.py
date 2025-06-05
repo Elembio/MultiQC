@@ -12,9 +12,7 @@ from multiqc.modules.cells2stats.cells2stats_bar_plots import (
     plot_target_cell_assignment,
 )
 
-from multiqc.modules.cells2stats.utils import (
-    summarize_target_site_names
-)
+from multiqc.modules.cells2stats.utils import summarize_target_site_names
 from multiqc.modules.cells2stats.cells2stats_tables import tabulate_wells, tabulate_batches, tabulate_target_wells
 
 log = logging.getLogger(__name__)
@@ -74,15 +72,17 @@ class MultiqcModule(BaseMultiqcModule):
                 description=description,
             )
             self.write_data_file(plot_content, anchor)
-        
+
         for target_site_name in summarize_target_site_names(self.c2s_run_data):
             log.info(f"Found {target_site_name} target group")
             for plotting_function in [
                 tabulate_target_wells,
                 plot_target_polony_assignment,
-                plot_target_cell_assignment
+                plot_target_cell_assignment,
             ]:
-                plot_html, plot_name, anchor, description, helptext, plot_content = plotting_function(self.c2s_run_data, target_site_name)
+                plot_html, plot_name, anchor, description, helptext, plot_content = plotting_function(
+                    self.c2s_run_data, target_site_name
+                )
                 self.add_section(
                     anchor=anchor,
                     name=plot_name,

@@ -14,7 +14,7 @@ from .queries import (
     get_percent_assigned_target_polony,
     get_percent_mismatch_target_polony,
     get_target_cell_metric_by_key,
-    get_batch_extracellularratio
+    get_batch_extracellularratio,
 )
 
 
@@ -68,7 +68,7 @@ def tabulate_wells(c2s_run_data):
         "description": "The number of cells in the well",
         "min": 0,
         "format": "{d}",
-        "scale": "GnBu"
+        "scale": "GnBu",
     }
 
     headers["percent_confluency"] = {
@@ -92,6 +92,7 @@ def tabulate_wells(c2s_run_data):
         "min": 0,
         "scale": "GnBu",
         "suffix": "um",
+        "format": "{:.1f}",
     }
     headers["total_density"] = {
         "title": "Assigned Counts K / mm2",
@@ -120,9 +121,10 @@ def tabulate_wells(c2s_run_data):
     helptext = """Provides cell paint and barocding metrics summarizing the performance of each well"""
     return plot_html, plot_name, anchor, description, helptext, plot_content
 
+
 def tabulate_target_wells(c2s_run_data, target_site_name):
     """
-    Generate a table of well metrics from the cells2stats report
+    Generate a table of target well metrics from the cells2stats report
     """
     plot_content = merge_well_dictionaries(
         [
@@ -281,7 +283,7 @@ def merge_batch_dictionaries(dict_list, metric_names):
 
 def tabulate_batches(c2s_run_data):
     """
-    Generate a table of batch metrics from the cells2stats report
+    Generate a table of barcoding batch metrics from the cells2stats report
     """
     plot_content = merge_batch_dictionaries(
         [

@@ -2,6 +2,7 @@ from .utils import json_decode_int, json_decode_float, is_nan, summarize_batch_n
 
 small_value = 0.00000001
 
+
 def get_cell_count(c2s_run_data):
     """
     Get the cell count for each well in the run"""
@@ -130,6 +131,7 @@ def get_batch_counts(c2s_run_data):
                         result.setdefault(f"{run_name} {well_location}", {})[batch_name] = val
     return result
 
+
 def get_batch_extracellularratio(c2s_run_data):
     """
     Get the extra-cellular ratio for each batch in each well in the run
@@ -186,7 +188,12 @@ def get_percent_mismatch(c2s_run_data):
                         result.setdefault(f"{run_name} {well_location}", {})[batch_name] = val
     return result
 
+
 def get_percent_assigned_target_polony(c2s_run_data, target_site_name):
+    """
+    Get the percent assigned for each well in the run for a target site
+    """
+
     result = {}
     for run_name in c2s_run_data:
         run_data = c2s_run_data[run_name]
@@ -194,14 +201,23 @@ def get_percent_assigned_target_polony(c2s_run_data, target_site_name):
             for well_data in batch_data.get("Wells", []):
                 for target_site_data in well_data.get("TargetSites", []):
                     if target_site_data.get("TargetSiteName", "") == target_site_name:
-                        value = json_decode_float(target_site_data.get("PolonyAssignmentStats", {}).get("PercentAssigned", float("nan")))
+                        value = json_decode_float(
+                            target_site_data.get("PolonyAssignmentStats", {}).get("PercentAssigned", float("nan"))
+                        )
                         if not is_nan(value) and value > 0:
                             result.setdefault(f"{run_name} {well_data['WellLocation']}", {})["percent_assigned"] = value
                         else:
-                            result.setdefault(f"{run_name} {well_data['WellLocation']}", {})["percent_assigned"] = small_value
+                            result.setdefault(f"{run_name} {well_data['WellLocation']}", {})["percent_assigned"] = (
+                                small_value
+                            )
     return result
 
+
 def get_percent_mismatch_target_polony(c2s_run_data, target_site_name):
+    """
+    Get the percent mismatch for each well in the run for a target site
+    """
+
     result = {}
     for run_name in c2s_run_data:
         run_data = c2s_run_data[run_name]
@@ -209,17 +225,24 @@ def get_percent_mismatch_target_polony(c2s_run_data, target_site_name):
             for well_data in batch_data.get("Wells", []):
                 for target_site_data in well_data.get("TargetSites", []):
                     if target_site_data.get("TargetSiteName", "") == target_site_name:
-                        value = json_decode_float(target_site_data.get("PolonyAssignmentStats", {}).get("PercentMismatch", float("nan")))
+                        value = json_decode_float(
+                            target_site_data.get("PolonyAssignmentStats", {}).get("PercentMismatch", float("nan"))
+                        )
                         if not is_nan(value) and value > 0:
                             result.setdefault(f"{run_name} {well_data['WellLocation']}", {})["percent_mismatch"] = value
                         else:
-                            result.setdefault(f"{run_name} {well_data['WellLocation']}", {})["percent_mismatch"] = small_value
+                            result.setdefault(f"{run_name} {well_data['WellLocation']}", {})["percent_mismatch"] = (
+                                small_value
+                            )
 
     return result
 
 
-
 def get_target_cell_assignment_status(c2s_run_data, target_site_name):
+    """
+    Get the target cell assignment metrics for each well in the run for a target site
+    """
+
     result = {}
     for run_name in c2s_run_data:
         run_data = c2s_run_data[run_name]
@@ -228,7 +251,12 @@ def get_target_cell_assignment_status(c2s_run_data, target_site_name):
                 for target_site_data in well_data.get("TargetSites", []):
                     if target_site_data.get("TargetSiteName", "") == target_site_name:
                         cell_assignment_data = target_site_data.get("CellAssignmentStats", {})
-                        for key in ["PercentAssignedPureCells", "PercentAssignedMixedCells", "PercentUnassignedMixedCells", "PercentUnassignedLowCountCells"]:
+                        for key in [
+                            "PercentAssignedPureCells",
+                            "PercentAssignedMixedCells",
+                            "PercentUnassignedMixedCells",
+                            "PercentUnassignedLowCountCells",
+                        ]:
                             val = json_decode_float(cell_assignment_data.get(key, float("nan")))
                             if not is_nan(val) and val > 0:
                                 result.setdefault(f"{run_name} {well_data['WellLocation']}", {})[key] = val
@@ -236,7 +264,12 @@ def get_target_cell_assignment_status(c2s_run_data, target_site_name):
                                 result.setdefault(f"{run_name} {well_data['WellLocation']}", {})[key] = small_value
     return result
 
-def get_target_cell_metric_by_key(c2s_run_data, target_site_name, key, factor = 1.0):
+
+def get_target_cell_metric_by_key(c2s_run_data, target_site_name, key, factor=1.0):
+    """
+    Get the named metric for each well in the run for a target site
+    """
+
     result = {}
     for run_name in c2s_run_data:
         run_data = c2s_run_data[run_name]
@@ -244,10 +277,11 @@ def get_target_cell_metric_by_key(c2s_run_data, target_site_name, key, factor = 
             for well_data in batch_data.get("Wells", []):
                 for target_site_data in well_data.get("TargetSites", []):
                     if target_site_data.get("TargetSiteName", "") == target_site_name:
-                        value = json_decode_float(target_site_data.get("CellAssignmentStats", {}).get(key, float("nan")))
+                        value = json_decode_float(
+                            target_site_data.get("CellAssignmentStats", {}).get(key, float("nan"))
+                        )
                         if not is_nan(value) and value > 0:
                             result.setdefault(f"{run_name} {well_data['WellLocation']}", {})[key] = value / factor
                         else:
                             result.setdefault(f"{run_name} {well_data['WellLocation']}", {})[key] = small_value
     return result
-

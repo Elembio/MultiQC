@@ -17,12 +17,12 @@ from .queries import (
     get_percent_assigned_target_polony,
     get_percent_mismatch_target_polony,
     get_target_cell_assignment_status,
-    get_target_cell_metric_by_key
+    get_target_cell_metric_by_key,
 )
 
 
 def plot_barcoding(c2s_run_data):
-    """ "
+    """
     Generate plots related to barcoding performance metrics from the cells2stats report
     """
 
@@ -56,15 +56,15 @@ def plot_barcoding(c2s_run_data):
     anchor = "well_barcoding_plot"
     description = "Bar plots of barcoding metrics"
     helptext = (
-        """PLot percent of assigned reads and percent of reads assigned with mismatch for each well in the run."""
+        """Plot percent of assigned reads and percent of reads assigned with mismatch for each well in the run."""
     )
 
     return plot_html, plot_name, anchor, description, helptext, plot_content
 
 
 def plot_cell_assignment(c2s_run_data):
-    """ "
-    Generate plots related to cell assignment performance metrics from the cells2stats report
+    """
+    Generate plots related to barcoding cell assignment performance metrics from the cells2stats report
     """
 
     batch_names = summarize_batch_names(c2s_run_data)
@@ -73,7 +73,7 @@ def plot_cell_assignment(c2s_run_data):
         get_batch_density(c2s_run_data),
         get_total_counts(c2s_run_data),
         get_batch_counts(c2s_run_data),
-        get_batch_extracellularratio(c2s_run_data)
+        get_batch_extracellularratio(c2s_run_data),
     ]
     pconfig = {
         "data_labels": [
@@ -108,7 +108,7 @@ def plot_cell_assignment(c2s_run_data):
 
 
 def plot_cell_segmentation(c2s_run_data):
-    """ "
+    """
     Generate plots related to cell segmentation metrics from the cells2stats report
     """
     plot_content = []
@@ -147,7 +147,7 @@ def plot_cell_segmentation(c2s_run_data):
 
 
 def plot_controls(c2s_run_data):
-    """ "
+    """
     Generate plots related to control metrics from the cells2stats report
     """
 
@@ -179,7 +179,9 @@ def plot_controls(c2s_run_data):
                         control_data = find_entry(batch_data.get("ControlTargets", []), "ControlType", control, {})
                         val = json_decode_float(control_data.get("AssignedCountPerMM2", float("nan")))
                         if not is_nan(val):
-                            control_content.setdefault(f"{run_name} {well_location}", {})[batch_name] = val / 1000.0  # Convert to K/mm2
+                            control_content.setdefault(f"{run_name} {well_location}", {})[batch_name] = (
+                                val / 1000.0
+                            )  # Convert to K/mm2
         plot_content.append(control_content)
 
     pconfig = {
@@ -211,6 +213,10 @@ def plot_controls(c2s_run_data):
 
 
 def plot_target_polony_assignment(c2s_run_data, target_site_name):
+    """
+    Generate plots related to target assignment performance metrics from the cells2stats report
+    """
+
     plot_content = []
     plot_content.append(get_percent_assigned_target_polony(c2s_run_data, target_site_name))
     plot_content.append(get_percent_mismatch_target_polony(c2s_run_data, target_site_name))
@@ -227,10 +233,7 @@ def plot_target_polony_assignment(c2s_run_data, target_site_name):
         "ymax": 100,
     }
 
-    cats = [
-        {"percent_assigned": {"name": "Percent Assigned"}},
-        {"percent_mismatch": {"name": "Percent Mismatch"}}
-    ]
+    cats = [{"percent_assigned": {"name": "Percent Assigned"}}, {"percent_mismatch": {"name": "Percent Mismatch"}}]
 
     plot_name = f"{target_site_name} Metrics"
     plot = bargraph.plot(plot_content, cats, pconfig=pconfig)
@@ -240,9 +243,10 @@ def plot_target_polony_assignment(c2s_run_data, target_site_name):
 
     return plot, plot_name, anchor, description, helptext, plot_content
 
+
 def plot_target_cell_assignment(c2s_run_data, target_site_name):
-    """ "
-    Generate plots related to cell assignment performance metrics from the cells2stats report
+    """
+    Generate plots related to target cell assignment performance metrics from the cells2stats report
     """
 
     plot_content = [
@@ -276,10 +280,18 @@ def plot_target_cell_assignment(c2s_run_data, target_site_name):
     cat = {}
     cat["PercentAssignedPureCells"] = {"name": "Percent Assigned Pure Cells", "color": scale.get_colour(0, lighten=1)}
     cat["PercentAssignedMixedCells"] = {"name": "Percent Assigned Mixed Cells", "color": scale.get_colour(1, lighten=1)}
-    cat["PercentUnassignedMixedCells"] = {"name": "Percent Unassigned Mixed Cells", "color": scale.get_colour(2, lighten=1)}
-    cat["PercentUnassignedLowCountCells"] = {"name": "Percent Unassigned Low Count Cells", "color": scale.get_colour(3, lighten=1)}
-    
-    cats = [cat,]
+    cat["PercentUnassignedMixedCells"] = {
+        "name": "Percent Unassigned Mixed Cells",
+        "color": scale.get_colour(2, lighten=1),
+    }
+    cat["PercentUnassignedLowCountCells"] = {
+        "name": "Percent Unassigned Low Count Cells",
+        "color": scale.get_colour(3, lighten=1),
+    }
+
+    cats = [
+        cat,
+    ]
     cats.append({"AssignedCountsPerMM2": {"name": "Assigned Density"}})
     cats.append({"MeanAssignedCountPerCell": {"name": "Mean Assigned Count"}})
     cats.append({"MedianAbundantTargetCount": {"name": "Median Abundant Target Count"}})
@@ -294,5 +306,3 @@ def plot_target_cell_assignment(c2s_run_data, target_site_name):
     helptext = """Plot statistics related to assignment of targets to cells."""
 
     return plot_html, plot_name, anchor, description, helptext, plot_content
-
-
