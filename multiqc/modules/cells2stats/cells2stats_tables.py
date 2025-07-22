@@ -67,7 +67,7 @@ def tabulate_wells(c2s_run_data):
         "title": "# Cells",
         "description": "The number of cells in the well",
         "min": 0,
-        "format": "{d}",
+        "format": "{:d}",
         "scale": "GnBu",
     }
 
