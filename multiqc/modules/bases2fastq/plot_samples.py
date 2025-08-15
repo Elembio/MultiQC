@@ -96,18 +96,20 @@ def sequence_content_plot(sample_data, group_lookup_dict, project_lookup_dict, c
     """Create the epic HTML for the FastQC sequence content heatmap"""
 
     # Prep the data
-    data = dict()
+    all_data = dict()
+    plot_content = [all_data]
 
     r1r2_split = 0
     for s_name in sorted(sample_data.keys()):
-        paired_end = True if len(sample_data[s_name]["Reads"]) > 1 else False
         for base in "ACTG":
             base_s_name = "__".join([s_name, base])
-            data[base_s_name] = {}
+            all_data[base_s_name] = {}
             R1 = sample_data[s_name]["Reads"][0]["Cycles"]
             r1r2_split = max(r1r2_split, len(R1))
 
     for s_name in sorted(sample_data.keys()):
+        paired_end = True if len(sample_data[s_name]["Reads"]) > 1 else False
+
         R1 = sample_data[s_name]["Reads"][0]["Cycles"]
         for cycle in range(len(R1)):
             base_no = cycle + 1
@@ -116,7 +118,7 @@ def sequence_content_plot(sample_data, group_lookup_dict, project_lookup_dict, c
 
             for base in "ACTG":
                 base_s_name = "__".join([s_name, base])
-                data[base_s_name].update(
+                all_data[base_s_name].update(
                     {base_no: float(R1[cycle]["BaseComposition"][base] / float(tot)) * 100.0 if tot > 0 else None}
                 )
 
@@ -128,15 +130,32 @@ def sequence_content_plot(sample_data, group_lookup_dict, project_lookup_dict, c
 
                 for base in "ACTG":
                     base_s_name = "__".join([s_name, base])
-                    data[base_s_name].update(
+                    all_data[base_s_name].update(
                         {base_no: float(R2[cycle]["BaseComposition"][base] / float(tot)) * 100.0 if tot > 0 else None}
                     )
 
-    plot_content = data
+    default_label = {
+        "name": "All",
+        "xlab": "Cycle",
+        "ylab": "Percentage of total reads",
+    }
+    data_labels = [
+        default_label,
+    ]
+    for s_name in sorted(sample_data.keys()):
+        sample_plot_data = dict()
+        for base in "ACTG":
+            base_s_name = "__".join([s_name, base])
+            sample_plot_data[base_s_name] = all_data[base_s_name]
+        plot_content.append(sample_plot_data)
+        data_labels.append({
+            "name": s_name,
+            "xlab": default_label["xlab"],
+            "ylab": default_label["ylab"],
+        })
 
     pconfig = {
-        "xlab": "cycle",
-        "ylab": "Percentage",
+        "data_labels": data_labels,
         "x_lines": [{"color": "#FF0000", "width": 2, "value": r1r2_split, "dashStyle": "dash"}],
         "colors": color_dict,
         "ymin": 0,
@@ -236,6 +255,17 @@ def plot_per_read_gc_hist(sample_data, group_lookup_dict, project_lookup_dict, s
     Plot GC Histogram per Sample
     """
     gc_hist_dict = dict()
+    plot_content = [
+        gc_hist_dict,
+    ]
+    default_label = {
+        "name": "All",
+        "xlab": "Percentage of total reads",
+        "ylab": "Percentage of reads that are GC",
+    }
+    data_labels = [
+        default_label,
+    ]
     for s_name in sample_data.keys():
         R1_gc_counts = sample_data[s_name]["Reads"][0]["PerReadGCCountHistogram"]
         R2_gc_counts = [0] * len(R1_gc_counts)
@@ -249,11 +279,16 @@ def plot_per_read_gc_hist(sample_data, group_lookup_dict, project_lookup_dict, s
             gc_hist_dict[s_name].update({gc / RLen * 100: R1R2_gc_counts[gc] / totalReads * 100})
 
     # perReadQualityHistogram
-    plot_content = gc_hist_dict
+    for s_name in gc_hist_dict.keys():
+        plot_content.append({s_name: gc_hist_dict[s_name]})
+        data_labels.append({
+            "name": s_name,
+            "xlab": default_label["xlab"],
+            "ylab": default_label["ylab"],
+        })
 
     pconfig = {
-        "xlab": "% GC",
-        "ylab": "Percentage",
+        "data_labels": data_labels,
         "colors": sample_color,
         "id": "gc_hist",
         "title": "bases2fastq: Per Sample GC Content Histogram",
