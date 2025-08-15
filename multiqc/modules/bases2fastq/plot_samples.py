@@ -20,6 +20,7 @@ def tabulate_sample_stats(sample_data, group_lookup_dict, project_lookup_dict, s
         general_stats.update({"mean_base_quality_sample": sample_data[s_name]["QualityScoreMean"]})
         general_stats.update({"percent_q30_sample": sample_data[s_name]["PercentQ30"]})
         general_stats.update({"percent_q40_sample": sample_data[s_name]["PercentQ40"]})
+        general_stats.update({"percent_mismatch": sample_data[s_name]["PercentMismatch"]})
         plot_content.update({s_name: general_stats})
 
     headers = {}
@@ -37,11 +38,10 @@ def tabulate_sample_stats(sample_data, group_lookup_dict, project_lookup_dict, s
         "scale": False,
     }
     headers["num_polonies_sample"] = {
-        "title": f"# Polonies ({config.base_count_prefix})",
-        "description": f"The total number of polonies that are calculated for the run. ({config.base_count_desc})",
+        "title": "# Polonies",
+        "description": "The total number of polonies that are calculated for the run.",
         "min": 0,
         "scale": "Blues",
-        "shared_key": "base_count",
     }
     headers["yield_sample"] = {
         "title": "Yield (Gb)",
@@ -65,6 +65,14 @@ def tabulate_sample_stats(sample_data, group_lookup_dict, project_lookup_dict, s
     headers["percent_q40_sample"] = {
         "title": "Percent Q40",
         "description": "The percentage of ≥ Q40 Q scores for the sample. This includes assigned reads and excludes filtered reads and no calls",
+        "max": 100,
+        "min": 0,
+        "scale": "RdYlGn",
+        "suffix": "%",
+    }
+    headers["percent_mismatch"] = {
+        "title": "Percent Mismatch",
+        "description": "The percentage of mismatching reads for the sample.",
         "max": 100,
         "min": 0,
         "scale": "RdYlGn",
@@ -100,7 +108,6 @@ def sequence_content_plot(sample_data, group_lookup_dict, project_lookup_dict, c
 
     r1r2_split = 0
     for s_name in sorted(sample_data.keys()):
-        paired_end = True if len(sample_data[s_name]["Reads"]) > 1 else False
         for base in "ACTG":
             base_s_name = "__".join([s_name, base])
             data[base_s_name] = {}
@@ -108,6 +115,8 @@ def sequence_content_plot(sample_data, group_lookup_dict, project_lookup_dict, c
             r1r2_split = max(r1r2_split, len(R1))
 
     for s_name in sorted(sample_data.keys()):
+        paired_end = True if len(sample_data[s_name]["Reads"]) > 1 else False
+
         R1 = sample_data[s_name]["Reads"][0]["Cycles"]
         for cycle in range(len(R1)):
             base_no = cycle + 1
@@ -135,8 +144,8 @@ def sequence_content_plot(sample_data, group_lookup_dict, project_lookup_dict, c
     plot_content = data
 
     pconfig = {
-        "xlab": "cycle",
-        "ylab": "Percentage",
+        "xlab": "Cycle",
+        "ylab": "Percentage of total reads",
         "x_lines": [{"color": "#FF0000", "width": 2, "value": r1r2_split, "dashStyle": "dash"}],
         "colors": color_dict,
         "ymin": 0,
@@ -147,8 +156,8 @@ def sequence_content_plot(sample_data, group_lookup_dict, project_lookup_dict, c
     plot_name = "Per Cycle Base Content"
     anchor = "base_content"
     description = """
-    Percentage of unidentified bases ("N" bases) by each sequencing cycle.
-    Read 1 and Read 2 are separated by a red dashed line
+    Base composition per sample per cycle.
+    Read 1 and Read 2 are separated by a red dashed line.
     """
     helptext = """
     If a sequencer is unable to make a base call with sufficient confidence then it will
@@ -252,8 +261,8 @@ def plot_per_read_gc_hist(sample_data, group_lookup_dict, project_lookup_dict, s
     plot_content = gc_hist_dict
 
     pconfig = {
-        "xlab": "% GC",
-        "ylab": "Percentage",
+        "xlab": "Percentage of total reads",
+        "ylab": "Percentage of reads that are GC",
         "colors": sample_color,
         "id": "gc_hist",
         "title": "bases2fastq: Per Sample GC Content Histogram",
@@ -323,7 +332,10 @@ def plot_adapter_content(sample_data, group_lookup_dict, project_lookup_dict, sa
     pconfig.update({"colors": sample_color})
     plot_html = linegraph.plot(plot_content, pconfig=pconfig)
     anchor = "adapter_content"
-    description = "Adapter content per cycle"
+    description = """
+    Adapter content per cycle.
+    Read 1 and Read 2 are separated by a red dashed line.
+    """
     helptext = """
     The plot shows a cumulative percentage count of the proportion
     of your library which has seen each of the adapter sequences at each cycle.

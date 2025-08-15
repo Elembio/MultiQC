@@ -54,7 +54,7 @@ def plot_run_stats(run_data, color_dict):
     pconfig = {
         "data_labels": [
             {"name": "Number of Polonies", "ylab": "Number of Polonies", "format": "{d}"},
-            {"name": "Yield (Gb)", "ylab": "Gb"},
+            {"name": "Yield (Gb)", "ylab": "Yield"},
         ],
         "cpswitch": True,
         "stacking": "normal",
@@ -99,11 +99,10 @@ def tabulate_run_stats(run_data, color_dict):
 
     headers = {}
     headers["num_polonies_run"] = {
-        "title": f"# Polonies ({config.base_count_prefix})",
-        "description": f"The total number of polonies that are calculated for the run. ({config.base_count_desc})",
+        "title": "# Polonies",
+        "description": "The total number of polonies that are calculated for the run.",
         "min": 0,
         "scale": "RdYlGn",
-        "shared_key": "base_count",
     }
     headers["percent_assigned_run"] = {
         "title": "% Assigned Reads",
@@ -221,6 +220,7 @@ def plot_base_quality_hist(run_data, color_dict):
         "id": "per_run_bq_hist",
         "title": "bases2fastq: Quality Histograms",
         "ylab": "Percentage",
+        "xlab": "Q score",
     }
     plot_html = linegraph.plot(plot_content, pconfig=pconfig)
     plot_name = "Run Base Quality Histogram"
@@ -347,10 +347,9 @@ def plot_base_quality_by_cycle(run_data, color_dict):
     plot_html = linegraph.plot(plot_content, pconfig=pconfig)
     plot_name = "Quality Metrics By Cycle"
     anchor = "per_cycle_quality"
-    description = "Per run base qualities by cycle"
+    description = "Per run base qualities by cycle. Read 1 and Read 2 are separated by a red dashed line."
     helptext = """
     This section plots the base qualities by each instrument cycle.\n
-    Choose between Median Quality, Mean Quality, Percent Q30 or Percentage Q40 per cycle.\n
-    Read 1 and Read 2 are separated by a red dashed line.
+    Choose between Median Quality, Mean Quality, Percent Q30 or Percentage Q40 per cycle.
     """
     return plot_html, plot_name, anchor, description, helptext, plot_content
