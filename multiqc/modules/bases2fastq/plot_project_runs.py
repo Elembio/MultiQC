@@ -22,11 +22,10 @@ def tabulate_project_run_stats(run_data, color_dict):
 
     headers = {}
     headers["num_polonies_run"] = {
-        "title": f"# Polonies ({config.base_count_prefix})",
-        "description": f"The total number of polonies that are calculated for the run ({config.base_count_desc})",
+        "title": "# Polonies",
+        "description": "The total number of polonies that are calculated for the run",
         "min": 0,
         "scale": "RdYlGn",
-        "shared_key": "base_count",
     }
     headers["percent_assigned_run"] = {
         "title": "% Assigned Reads",
