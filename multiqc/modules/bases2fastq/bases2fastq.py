@@ -1,10 +1,11 @@
 from collections import defaultdict
 import copy
+from itertools import chain
 import re
 import json
 import logging
 import random
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import uuid
 from pathlib import Path
 
@@ -121,6 +122,9 @@ class MultiqcModule(BaseMultiqcModule):
 
     def _init_data_structures(self) -> None:
         """Initialize all data structures used by the module."""
+        # File cache to avoid reading the same JSON files multiple times
+        self._file_cache: Dict[str, Any] = {}
+
         # Run, project and sample level structures
         self.run_level_data: Dict[str, Any] = {}
         self.run_level_samples: Dict[str, Any] = {}
@@ -141,6 +145,38 @@ class MultiqcModule(BaseMultiqcModule):
         self.b2f_run_project_sample_data: Dict[str, Any] = {}
         self.missing_runs: set = set()
         self.sample_id_to_run: Dict[str, str] = {}
+
+    def _read_json_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
+        """
+        Read and parse a JSON file with caching.
+
+        Args:
+            file_path: Path to the JSON file
+
+        Returns:
+            Parsed JSON data or None if reading failed
+        """
+        cache_key = str(file_path.resolve())
+
+        if cache_key in self._file_cache:
+            return self._file_cache[cache_key]
+
+        if not file_path.exists():
+            log.error(
+                f"{file_path.name} does not exist at {file_path}.\n"
+                f"Please visit Elembio online documentation for more information - "
+                f"https://docs.elembio.io/docs/bases2fastq/introduction/"
+            )
+            return None
+
+        try:
+            with open(file_path) as _infile:
+                data = json.load(_infile)
+                self._file_cache[cache_key] = data
+                return data
+        except (json.JSONDecodeError, OSError) as e:
+            log.error(f"Error reading {file_path}: {e}")
+            return None
 
     def _parse_and_validate_data(self) -> str:
         """
@@ -287,13 +323,10 @@ class MultiqcModule(BaseMultiqcModule):
 
         # Build color palette
         self.color_getter = mqc_colour.mqc_colour_scale()
-        self.palette = sum(
-            [
-                self.color_getter.get_colours(hue)
-                for hue in ["Set2", "Pastel1", "Accent", "Set1", "Set3", "Dark2", "Paired", "Pastel2"]
-            ],
-            [],
-        )
+        self.palette = list(chain.from_iterable(
+            self.color_getter.get_colours(hue)
+            for hue in ["Set2", "Pastel1", "Accent", "Set1", "Set3", "Dark2", "Paired", "Pastel2"]
+        ))
 
         # Add extra colors if needed
         if len(merged_groups) > len(self.palette):
@@ -363,6 +396,35 @@ class MultiqcModule(BaseMultiqcModule):
     def get_uuid(self):
         return str(uuid.uuid4()).replace("-", "").lower()
 
+    def _extract_run_analysis_name(
+        self,
+        data: Dict[str, Any],
+        source_info: str = "RunStats.json",
+    ) -> Optional[str]:
+        """
+        Extract and validate run_analysis_name from data dict.
+
+        Args:
+            data: Dictionary containing RunName and AnalysisID keys
+            source_info: Description of the data source for error messages
+
+        Returns:
+            The run_analysis_name (RunName-AnalysisID[0:4]) or None if extraction failed
+        """
+        run_name = data.get("RunName")
+        analysis_id = data.get("AnalysisID")
+
+        if not run_name or not analysis_id:
+            log.error(
+                f"Error with {source_info}. Either RunName or AnalysisID is absent.\n"
+                f"RunName: {run_name}, AnalysisID: {analysis_id}\n"
+                f"Please visit Elembio online documentation for more information - "
+                f"https://docs.elembio.io/docs/bases2fastq/introduction/"
+            )
+            return None
+
+        return f"{run_name}-{analysis_id[0:4]}"
+
     def _parse_run_project_data(self, data_source: str) -> List[Dict[str, Any]]:
         runs_global_data = {}
         runs_sample_data = {}
@@ -378,20 +440,10 @@ class MultiqcModule(BaseMultiqcModule):
             data_to_return["SampleStats"] = []
 
             # get run + analysis
-            run_name = data.get("RunName", None)
-            analysis_id = data.get("AnalysisID", None)
-
-            if not run_name or not analysis_id:
-                log.error(
-                    "Error with RunStats.json. Either RunName or AnalysisID is absent.\n"
-                    "Please visit Elembio online documentation for more information - "
-                    "https://docs.elembio.io/docs/bases2fastq/introduction/"
-                )
+            run_name = data.get("RunName")
+            run_analysis_name = self._extract_run_analysis_name(data, source_info=f"RunStats.json ({f['fn']})")
+            if run_analysis_name is None:
                 continue
-
-            analysis_id = analysis_id[0:4]
-
-            run_analysis_name = "-".join([run_name, analysis_id])
             run_analysis_name = self.clean_s_name(run_analysis_name, f)
 
             # skip run if in user provider ignore list
@@ -448,31 +500,12 @@ class MultiqcModule(BaseMultiqcModule):
 
             # Get RunName and RunID from RunStats.json
             run_stats_path = Path(directory) / "RunStats.json"
-            if not run_stats_path.exists():
-                log.error(
-                    f"RunStats.json does not exist in the Bases2Fastq output directory {directory}.\n"
-                    "Please visit Elembio online documentation for more information - "
-                    "https://docs.elembio.io/docs/bases2fastq/introduction/"
-                )
+            run_stats = self._read_json_file(run_stats_path)
+            if run_stats is None:
                 continue
 
-            run_analysis_name = None
-            try:
-                with open(run_stats_path) as _infile:
-                    run_stats = json.load(_infile)
-                    run_name = run_stats.get("RunName", None)
-                    analysis_id = run_stats.get("AnalysisID", None)
-                    if run_name and analysis_id:
-                        run_analysis_name = "-".join([run_name, analysis_id[0:4]])
-                    else:
-                        log.error(
-                            "Error with RunStats.json. Either RunName or AnalysisID is absent.\n"
-                            "Please visit Elembio online documentation for more information - "
-                            "https://docs.elembio.io/docs/bases2fastq/introduction/"
-                        )
-                        continue
-            except (json.JSONDecodeError, OSError) as e:
-                log.error(f"Error reading {run_stats_path}: {e}")
+            run_analysis_name = self._extract_run_analysis_name(run_stats, source_info=str(run_stats_path))
+            if run_analysis_name is None:
                 continue
 
             run_manifest = json.loads(f["f"])
@@ -527,28 +560,11 @@ class MultiqcModule(BaseMultiqcModule):
 
             # Get RunName and RunID from RunParameters.json
             run_manifest = Path(directory) / "../../RunManifest.json"
-            if not run_manifest.exists():
-                log.error(
-                    f"RunManifest.json could not be found in {run_manifest}. Skipping index assignment.\n"
-                    "Please visit Elembio online documentation for more information - "
-                    "https://docs.elembio.io/docs/bases2fastq/introduction/"
-                )
-                continue
-
             project_stats = json.loads(f["f"])
-            run_analysis_name = None
-            run_name = project_stats.get("RunName", None)
-            analysis_id = project_stats.get("AnalysisID", None)
-
-            if run_name and analysis_id:
-                run_analysis_name = "-".join([run_name, analysis_id[0:4]])
-            else:
-                log.error(
-                    f"Error with project's RunStats.json. Either RunName or AnalysisID is absent.\n"
-                    f"File: {f['fn']}, RunName: {run_name}, AnalysisID: {analysis_id}\n"
-                    f"Please visit Elembio online documentation for more information - "
-                    f"https://docs.elembio.io/docs/bases2fastq/introduction/"
-                )
+            run_analysis_name = self._extract_run_analysis_name(
+                project_stats, source_info=f"project RunStats.json ({f['fn']})"
+            )
+            if run_analysis_name is None:
                 continue
 
             # skip run if in user provider ignore list
@@ -556,12 +572,8 @@ class MultiqcModule(BaseMultiqcModule):
                 log.info(f"Skipping <{run_analysis_name}> because it is present in ignore list.")
                 continue
 
-            run_manifest_data = None
-            try:
-                with open(run_manifest) as _infile:
-                    run_manifest_data = json.load(_infile)
-            except (json.JSONDecodeError, OSError) as e:
-                log.error(f"Error reading {run_manifest}: {e}")
+            run_manifest_data = self._read_json_file(run_manifest)
+            if run_manifest_data is None:
                 continue
 
             if "Settings" not in run_manifest_data:
@@ -615,17 +627,9 @@ class MultiqcModule(BaseMultiqcModule):
             data = json.loads(f["f"])
 
             # Get RunName and AnalysisID
-            run_name = data.get("RunName", None)
-            analysis_id = data.get("AnalysisID", None)
-            if not run_name or not analysis_id:
-                log.error(
-                    "Error with RunStats.json. Either RunName or AnalysisID is absent.\n"
-                    "Please visit Elembio online documentation for more information - "
-                    "https://docs.elembio.io/docs/bases2fastq/introduction/"
-                )
+            run_analysis_name = self._extract_run_analysis_name(data, source_info=f"RunStats.json ({f['fn']})")
+            if run_analysis_name is None:
                 continue
-            analysis_id = analysis_id[0:4]
-            run_analysis_name = "-".join([run_name, analysis_id])
             run_analysis_name = self.clean_s_name(run_analysis_name, f)
 
             # skip run if in user provider ignore list
@@ -674,37 +678,17 @@ class MultiqcModule(BaseMultiqcModule):
             if not directory:
                 continue
 
-            # Get RunName and RunID from RunParameters.json
+            # Get RunName and RunID from RunStats.json
             run_stats_path = Path(directory) / "RunStats.json"
-            if not run_stats_path.exists():
-                log.error(
-                    f"RunStats.json does not exist in the Bases2Fastq output directory {directory}.\n"
-                    "Please visit Elembio online documentation for more information - "
-                    "https://docs.elembio.io/docs/bases2fastq/introduction/"
-                )
+            run_stats = self._read_json_file(run_stats_path)
+            if run_stats is None:
                 continue
 
-            run_analysis_name = None
             total_polonies = 0
-            try:
-                with open(run_stats_path) as _infile:
-                    run_stats = json.load(_infile)
-            except (json.JSONDecodeError, OSError) as e:
-                log.error(f"Error reading {run_stats_path}: {e}")
-                continue
 
             # Get run name information
-            run_name = run_stats.get("RunName", None)
-            analysis_id = run_stats.get("AnalysisID", None)
-            if run_name and analysis_id:
-                run_analysis_name = "-".join([run_name, analysis_id[0:4]])
-            else:
-                log.error(
-                    f"Error with RunStats.json. Either RunName or AnalysisID is absent.\n"
-                    f"File: {run_stats_path}, RunName: {run_name}, AnalysisID: {analysis_id}\n"
-                    f"Please visit Elembio online documentation for more information - "
-                    f"https://docs.elembio.io/docs/bases2fastq/introduction/"
-                )
+            run_analysis_name = self._extract_run_analysis_name(run_stats, source_info=str(run_stats_path))
+            if run_analysis_name is None:
                 continue
 
             # skip run if in user provider ignore list
@@ -807,31 +791,16 @@ class MultiqcModule(BaseMultiqcModule):
             if not directory:
                 continue
 
-            # Get RunName and RunID from RunParameters.json
+            # Get RunManifest.json path for later use
             run_manifest = Path(directory) / "../../RunManifest.json"
-            if not run_manifest.exists():
-                log.error(
-                    f"RunManifest.json could not be found in {run_manifest}. Skipping index assignment.\n"
-                    "Please visit Elembio online documentation for more information - "
-                    "https://docs.elembio.io/docs/bases2fastq/introduction/"
-                )
-                continue
 
             project_stats = json.loads(f["f"])
-            run_analysis_name = None
-            run_name = project_stats.get("RunName", None)
-            analysis_id = project_stats.get("AnalysisID", None)
             project = self.clean_s_name(project_stats.get("Project", "DefaultProject"), f)
 
-            if run_name and analysis_id:
-                run_analysis_name = "-".join([run_name, analysis_id[0:4]])
-            else:
-                log.error(
-                    f"Error with project's RunStats.json. Either RunName or AnalysisID is absent.\n"
-                    f"File: {f['fn']}, RunName: {run_name}, AnalysisID: {analysis_id}\n"
-                    f"Please visit Elembio online documentation for more information - "
-                    f"https://docs.elembio.io/docs/bases2fastq/introduction/"
-                )
+            run_analysis_name = self._extract_run_analysis_name(
+                project_stats, source_info=f"project RunStats.json ({f['fn']})"
+            )
+            if run_analysis_name is None:
                 continue
 
             # skip run if in user provider ignore list
@@ -889,12 +858,8 @@ class MultiqcModule(BaseMultiqcModule):
                         sample_data["SamplePolonyCounts"] / total_polonies * 100, 2
                     )
 
-            run_manifest_data = None
-            try:
-                with open(run_manifest) as _infile:
-                    run_manifest_data = json.load(_infile)
-            except (json.JSONDecodeError, OSError) as e:
-                log.error(f"Error reading {run_manifest}: {e}")
+            run_manifest_data = self._read_json_file(run_manifest)
+            if run_manifest_data is None:
                 continue
 
             if "Samples" not in run_manifest_data:
