@@ -69,20 +69,82 @@ class MultiqcModule(BaseMultiqcModule):
     Bases2Fastq is Element Biosciences' secondary analysis software for demultiplexing
     sequencing data from AVITI systems and converting base calls into FASTQ files.
 
-    The module parses the following output files from Bases2Fastq:
+    Data Flow Overview
+    ------------------
+    The module handles three distinct data hierarchy levels:
 
-    - `RunStats.json`: Contains run-level and sample-level QC metrics
-    - `RunManifest.json`: Contains sample sheet information including indexing and adapter settings
-    - Project-level `RunStats.json`: Contains project-specific metrics when demultiplexing by project
+    1. **Run Level**: Single sequencing run with all samples in one output
+        - Directory: `<run_output>/`
+        - Files: `RunStats.json`, `RunManifest.json`
+        - Samples identified by: `{RunName}-{AnalysisID}__{SampleName}`
 
-    The module supports both run-level analysis (single run) and project-level analysis
-    (aggregated metrics across projects), displaying metrics such as:
+    2. **Project Level**: Demultiplexing by project, samples split into project subdirectories
+        - Directory: `<run_output>/Samples/<ProjectName>/`
+        - Files: Project-specific `RunStats.json`
+        - Run-level `RunManifest.json` accessed via `../../RunManifest.json`
+        - Samples identified by: `{RunName}-{AnalysisID}__{SampleName}`
 
+    3. **Combined Level**: Both run and project data present (merged view)
+
+    Parsing Flow
+    ------------
+    ```
+    __init__()
+        │
+        ├─> _init_data_structures()     # Initialize empty dicts for all data levels
+        │
+        ├─> _parse_and_validate_data()  # Main parsing entry point
+        │       │
+        │       ├─> _parse_run_project_data("bases2fastq/run")     # Parse run-level RunStats.json
+        │       │       └─> Populates: run_level_data, run_level_samples, run_level_samples_to_project
+        │       │
+        │       ├─> _parse_run_project_data("bases2fastq/project") # Parse project-level RunStats.json
+        │       │       └─> Populates: project_level_data, project_level_samples, project_level_samples_to_project
+        │       │
+        │       └─> _determine_summary_path()  # Returns: "run_level" | "project_level" | "combined_level"
+        │
+        ├─> _select_data_by_summary_path()  # Route to appropriate data sources
+        │       │
+        │       ├─> _parse_run_manifest() or _parse_run_manifest_in_project()
+        │       │       └─> Returns: manifest_data (lane settings, adapter info)
+        │       │
+        │       ├─> _parse_index_assignment() or _parse_index_assignment_in_project()
+        │       │       └─> Returns: index_assignment_data (per-sample index stats)
+        │       │
+        │       └─> _parse_run_unassigned_sequences() (run_level only)
+        │               └─> Returns: unassigned_sequences (unknown barcodes)
+        │
+        ├─> _setup_colors()             # Assign colors to runs/projects/samples
+        │
+        └─> _generate_plots()           # Create all report sections and plots
+    ```
+
+    Data Structures
+    ---------------
+    - `run_level_data`: Dict[run_name, run_stats] - Run-level QC metrics
+    - `run_level_samples`: Dict[sample_id, sample_stats] - Sample metrics from run-level
+    - `project_level_data`: Dict[project_name, project_stats] - Project-level QC metrics
+    - `project_level_samples`: Dict[sample_id, sample_stats] - Sample metrics from project-level
+    - `*_samples_to_project`: Dict[sample_id, project_name] - Maps samples to their projects
+
+    Sample Naming Convention
+    ------------------------
+    Samples are uniquely identified as: `{RunName}-{AnalysisID[0:4]}__{SampleName}`
+    This ensures uniqueness across multiple runs while keeping names readable.
+
+    Files Parsed
+    ------------
+    - `RunStats.json`: Run/project QC metrics, sample statistics, lane data
+    - `RunManifest.json`: Sample sheet info, index sequences, adapter settings
+
+    Metrics Displayed
+    -----------------
     - Polony counts and yields
-    - Base quality distributions
+    - Base quality distributions (histogram and by-cycle)
     - Index assignment statistics
     - Per-sample sequence content and GC distribution
     - Adapter content analysis
+    - Unassigned/unknown barcode sequences (run-level only)
     """
 
     def __init__(self):
@@ -121,41 +183,85 @@ class MultiqcModule(BaseMultiqcModule):
         self.write_data_file(sample_data, "bases2fastq")
 
     def _init_data_structures(self) -> None:
-        """Initialize all data structures used by the module."""
+        """
+        Initialize all data structures used by the module.
+
+        Data structures are organized by hierarchy level:
+        - Run level: Data from single-run Bases2Fastq output (no project splitting)
+        - Project level: Data from project-split Bases2Fastq output
+        - Combined: Merged data when both levels are present
+        """
         # File cache to avoid reading the same JSON files multiple times
+        # Key: resolved file path, Value: parsed JSON data
         self._file_cache: Dict[str, Any] = {}
 
-        # Run, project and sample level structures
-        self.run_level_data: Dict[str, Any] = {}
-        self.run_level_samples: Dict[str, Any] = {}
-        self.run_level_samples_to_project: Dict[str, str] = {}
-        self.project_level_data: Dict[str, Any] = {}
-        self.project_level_samples: Dict[str, Any] = {}
-        self.project_level_samples_to_project: Dict[str, str] = {}
+        # === Run-level data structures ===
+        # Populated from <run_output>/RunStats.json
+        self.run_level_data: Dict[str, Any] = {}  # run_name -> full run stats
+        self.run_level_samples: Dict[str, Any] = {}  # sample_id -> sample stats
+        self.run_level_samples_to_project: Dict[str, str] = {}  # sample_id -> project name
 
-        # Run and project groups
-        self.group_dict: Dict[str, Any] = {}
-        self.group_lookup_dict: Dict[str, Any] = {}
-        self.project_lookup_dict: Dict[str, Any] = {}
+        # === Project-level data structures ===
+        # Populated from <run_output>/Samples/<project>/RunStats.json
+        self.project_level_data: Dict[str, Any] = {}  # project_name -> project stats
+        self.project_level_samples: Dict[str, Any] = {}  # sample_id -> sample stats
+        self.project_level_samples_to_project: Dict[str, str] = {}  # sample_id -> project name
 
-        # Additional data structures
+        # === Grouping structures for color assignment ===
+        self.group_dict: Dict[str, Any] = {}  # group_name -> list of members
+        self.group_lookup_dict: Dict[str, Any] = {}  # item -> group it belongs to
+        self.project_lookup_dict: Dict[str, Any] = {}  # sample -> project mapping
+
+        # === Legacy/auxiliary data structures ===
         self.b2f_sample_data: Dict[str, Any] = {}
         self.b2f_run_data: Dict[str, Any] = {}
         self.b2f_run_project_data: Dict[str, Any] = {}
         self.b2f_run_project_sample_data: Dict[str, Any] = {}
-        self.missing_runs: set = set()
-        self.sample_id_to_run: Dict[str, str] = {}
+        self.missing_runs: set = set()  # Runs referenced but not found
+        self.sample_id_to_run: Dict[str, str] = {}  # sample_id -> run_analysis_name
 
-    def _read_json_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
+    def _validate_path(self, file_path: Path, base_directory: Path) -> bool:
+        """
+        Validate that a file path doesn't escape outside the expected directory hierarchy.
+
+        Args:
+            file_path: Path to validate
+            base_directory: The base directory that the path should stay within
+
+        Returns:
+            True if path is valid, False if it escapes the base directory
+        """
+        try:
+            resolved_path = file_path.resolve()
+            resolved_base = base_directory.resolve()
+            # Check if the resolved path is within the base directory tree
+            resolved_path.relative_to(resolved_base)
+            return True
+        except ValueError:
+            # relative_to raises ValueError if path is not relative to base
+            log.warning(
+                f"Path {file_path} resolves outside expected directory {base_directory}. "
+                f"Skipping for security reasons."
+            )
+            return False
+
+    def _read_json_file(
+        self, file_path: Path, base_directory: Optional[Path] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         Read and parse a JSON file with caching.
 
         Args:
             file_path: Path to the JSON file
+            base_directory: Optional base directory to validate path against
 
         Returns:
             Parsed JSON data or None if reading failed
         """
+        # Validate path doesn't escape expected directory if base is provided
+        if base_directory is not None and not self._validate_path(file_path, base_directory):
+            return None
+
         cache_key = str(file_path.resolve())
 
         if cache_key in self._file_cache:
@@ -426,6 +532,24 @@ class MultiqcModule(BaseMultiqcModule):
         return f"{run_name}-{analysis_id[0:4]}"
 
     def _parse_run_project_data(self, data_source: str) -> List[Dict[str, Any]]:
+        """
+        Parse RunStats.json files to extract run/project and sample-level data.
+
+        This is the primary parsing method that populates the core data structures.
+        It handles both run-level and project-level RunStats.json files.
+
+        Args:
+            data_source: Search pattern key ("bases2fastq/run" or "bases2fastq/project")
+
+        Returns:
+            List containing:
+            - runs_global_data: Dict[run_name, run_stats] - Run/project level metrics
+            - runs_sample_data: Dict[sample_id, sample_stats] - Per-sample metrics
+            - sample_to_project: Dict[sample_id, project_name] - Sample-to-project mapping
+
+        Data Flow:
+            RunStats.json -> parse -> filter samples by min_polonies -> populate dicts
+        """
         runs_global_data = {}
         runs_sample_data = {}
         sample_to_project = {}
@@ -488,6 +612,20 @@ class MultiqcModule(BaseMultiqcModule):
         return [runs_global_data, runs_sample_data, sample_to_project]
 
     def _parse_run_manifest(self, data_source: str) -> Dict[str, Any]:
+        """
+        Parse RunManifest.json for run-level analysis to extract lane and adapter settings.
+
+        Data Flow:
+            RunManifest.json (via data_source pattern)
+            + RunStats.json (for run name) from same directory
+            -> Extract per-lane: index masks, adapter settings, trim lengths
+
+        Args:
+            data_source: Search pattern key for RunManifest.json files
+
+        Returns:
+            Dict[run_lane, settings] where run_lane = "{run_name} | L{lane_id}"
+        """
         runs_manifest_data = {}
 
         if data_source == "":
@@ -548,6 +686,17 @@ class MultiqcModule(BaseMultiqcModule):
         return runs_manifest_data
 
     def _parse_run_manifest_in_project(self, data_source: str) -> Dict[str, Any]:
+        """
+        Parse RunManifest.json for project-level analysis.
+
+        Similar to _parse_run_manifest but navigates up from project directories
+        to find the run-level RunManifest.json (via ../../RunManifest.json).
+
+        Data Flow:
+            Project RunStats.json (for run name)
+            + ../../RunManifest.json (run-level manifest)
+            -> Extract per-lane settings
+        """
         project_manifest_data = {}
 
         if data_source == "":
@@ -558,8 +707,9 @@ class MultiqcModule(BaseMultiqcModule):
             if not directory:
                 continue
 
-            # Get RunName and RunID from RunParameters.json
-            run_manifest = Path(directory) / "../../RunManifest.json"
+            # Get RunManifest.json from run output root (two levels up from project directory)
+            base_directory = Path(directory).parent.parent
+            run_manifest = base_directory / "RunManifest.json"
             project_stats = json.loads(f["f"])
             run_analysis_name = self._extract_run_analysis_name(
                 project_stats, source_info=f"project RunStats.json ({f['fn']})"
@@ -572,7 +722,7 @@ class MultiqcModule(BaseMultiqcModule):
                 log.info(f"Skipping <{run_analysis_name}> because it is present in ignore list.")
                 continue
 
-            run_manifest_data = self._read_json_file(run_manifest)
+            run_manifest_data = self._read_json_file(run_manifest, base_directory=base_directory)
             if run_manifest_data is None:
                 continue
 
@@ -619,6 +769,16 @@ class MultiqcModule(BaseMultiqcModule):
         return project_manifest_data
 
     def _parse_run_unassigned_sequences(self, data_source: str) -> Dict[str, Any]:
+        """
+        Parse unassigned/unknown barcode sequences from run-level data.
+
+        Only available for run-level analysis. Extracts sequences that could not
+        be assigned to any sample, useful for troubleshooting index issues.
+
+        Data Flow:
+            RunStats.json -> Lanes -> UnassignedSequences
+            -> Extract: sequence, count, percentage of total polonies
+        """
         run_unassigned_sequences = {}
         if data_source == "":
             return run_unassigned_sequences
@@ -668,6 +828,17 @@ class MultiqcModule(BaseMultiqcModule):
         return run_unassigned_sequences
 
     def _parse_index_assignment(self, manifest_data_source: str) -> Dict[str, Any]:
+        """
+        Parse index assignment statistics for run-level analysis.
+
+        Combines data from RunStats.json (polony counts) and RunManifest.json
+        (index sequences) to show how well each sample's index performed.
+
+        Data Flow:
+            RunStats.json -> SampleStats -> per-sample polony counts
+            + RunManifest.json -> Samples -> index sequences (Index1, Index2)
+            -> Combined index assignment table
+        """
         sample_to_index_assignment = {}
 
         if manifest_data_source == "":
@@ -781,6 +952,17 @@ class MultiqcModule(BaseMultiqcModule):
         return sample_to_index_assignment
 
     def _parse_index_assignment_in_project(self, data_source: str) -> Dict[str, Any]:
+        """
+        Parse index assignment statistics for project-level analysis.
+
+        Similar to _parse_index_assignment but works with project-split output,
+        navigating up to find the run-level RunManifest.json.
+
+        Data Flow:
+            Project RunStats.json -> SampleStats -> polony counts
+            + ../../RunManifest.json -> Samples -> index sequences
+            -> Combined index assignment table
+        """
         sample_to_index_assignment = {}
 
         if data_source == "":
@@ -791,8 +973,9 @@ class MultiqcModule(BaseMultiqcModule):
             if not directory:
                 continue
 
-            # Get RunManifest.json path for later use
-            run_manifest = Path(directory) / "../../RunManifest.json"
+            # Get RunManifest.json from run output root (two levels up from project directory)
+            base_directory = Path(directory).parent.parent
+            run_manifest = base_directory / "RunManifest.json"
 
             project_stats = json.loads(f["f"])
             project = self.clean_s_name(project_stats.get("Project", "DefaultProject"), f)
@@ -858,13 +1041,13 @@ class MultiqcModule(BaseMultiqcModule):
                         sample_data["SamplePolonyCounts"] / total_polonies * 100, 2
                     )
 
-            run_manifest_data = self._read_json_file(run_manifest)
+            run_manifest_data = self._read_json_file(run_manifest, base_directory=base_directory)
             if run_manifest_data is None:
                 continue
 
             if "Samples" not in run_manifest_data:
                 log.warning(
-                    f"<Samples> section not found in {directory}/RunManifest.json.\n"
+                    f"<Samples> section not found in {run_manifest}.\n"
                     f"Skipping RunManifest sample index assignment metrics."
                 )
             elif len(sample_to_index_assignment) == 0:
