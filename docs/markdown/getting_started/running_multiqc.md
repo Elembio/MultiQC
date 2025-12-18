@@ -199,6 +199,16 @@ missing.
 You can always save static image versions of plots from within MultiQC reports, using the [Export toolbox](../reports#exporting-plots) in the side bar.
 :::
 
+### Export timeout
+
+Static plot generation uses [Kaleido](https://github.com/plotly/Kaleido) under the hood,
+which can occasionally hang. To prevent this from blocking report generation indefinitely,
+MultiQC applies a timeout to each plot export. If the timeout is exceeded, the plot export
+is skipped and report generation continues.
+
+The default timeout is 60 seconds per plot. You can adjust this with the `export_plots_timeout`
+config option.
+
 ## PDF Reports
 
 Whilst HTML is definitely the format of choice for MultiQC reports due to
@@ -236,6 +246,10 @@ for example if the lualatex dependency is not installed you will see the followi
 ```
 lualatex not found. Please select a different --pdf-engine or install lualatex
 ```
+
+:::tip{title="Using Docker for PDF generation"}
+If you're using Docker, a PDF-enabled image is available that includes all required dependencies (Pandoc and LaTeX). See the [Docker installation documentation](installation.md#docker-image-variants) for details on using `multiqc/multiqc:pdf-latest`.
+:::
 
 Note that not all plots have flat image equivalents, so
 some will be missing (at time of writing: FastQC sequence content plot,
