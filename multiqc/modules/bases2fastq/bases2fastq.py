@@ -5,7 +5,7 @@ import re
 import json
 import logging
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import uuid
 from pathlib import Path
 
@@ -175,8 +175,13 @@ class MultiqcModule(BaseMultiqcModule):
 
         # Generate all plots and sections
         self._generate_plots(
-            summary_path, run_data, sample_data, samples_to_projects,
-            manifest_data, index_assignment_data, unassigned_sequences
+            summary_path,
+            run_data,
+            sample_data,
+            samples_to_projects,
+            manifest_data,
+            index_assignment_data,
+            unassigned_sequences,
         )
 
         # Write main data file at the very end after all sections are added
@@ -240,14 +245,11 @@ class MultiqcModule(BaseMultiqcModule):
         except ValueError:
             # relative_to raises ValueError if path is not relative to base
             log.warning(
-                f"Path {file_path} resolves outside expected directory {base_directory}. "
-                f"Skipping for security reasons."
+                f"Path {file_path} resolves outside expected directory {base_directory}. Skipping for security reasons."
             )
             return False
 
-    def _read_json_file(
-        self, file_path: Path, base_directory: Optional[Path] = None
-    ) -> Optional[Dict[str, Any]]:
+    def _read_json_file(self, file_path: Path, base_directory: Optional[Path] = None) -> Optional[Dict[str, Any]]:
         """
         Read and parse a JSON file with caching.
 
@@ -315,12 +317,14 @@ class MultiqcModule(BaseMultiqcModule):
         num_project_level_samples = len(self.project_level_samples)
 
         # Ensure at least some data was found
-        if all([
-            len(self.run_level_data) == 0,
-            num_run_level_samples == 0,
-            len(self.project_level_data) == 0,
-            num_project_level_samples == 0,
-        ]):
+        if all(
+            [
+                len(self.run_level_data) == 0,
+                num_run_level_samples == 0,
+                len(self.project_level_data) == 0,
+                num_project_level_samples == 0,
+            ]
+        ):
             error_msg = "No run-, project- or sample-level data found"
             log.error(error_msg)
             raise ModuleNoSamplesFound(error_msg)
@@ -368,7 +372,9 @@ class MultiqcModule(BaseMultiqcModule):
             log.error(error_msg)
             raise ModuleNoSamplesFound(error_msg)
 
-    def _select_data_by_summary_path(self, summary_path: str):
+    def _select_data_by_summary_path(
+        self, summary_path: str
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, str], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
         """
         Select the appropriate data sources based on the summary path.
 
@@ -408,7 +414,9 @@ class MultiqcModule(BaseMultiqcModule):
             log.error(error_msg)
             raise ModuleNoSamplesFound(error_msg)
 
-    def _setup_colors(self, sample_data: Dict, samples_to_projects: Dict, summary_path: str) -> None:
+    def _setup_colors(
+        self, sample_data: Dict[str, Any], samples_to_projects: Dict[str, str], summary_path: str
+    ) -> None:
         """Set up color schemes for groups and samples."""
         # Create run and project groups
         run_groups: Dict[str, List] = defaultdict(list)
@@ -429,10 +437,12 @@ class MultiqcModule(BaseMultiqcModule):
 
         # Build color palette
         self.color_getter = mqc_colour.mqc_colour_scale()
-        self.palette = list(chain.from_iterable(
-            self.color_getter.get_colours(hue)
-            for hue in ["Set2", "Pastel1", "Accent", "Set1", "Set3", "Dark2", "Paired", "Pastel2"]
-        ))
+        self.palette = list(
+            chain.from_iterable(
+                self.color_getter.get_colours(hue)
+                for hue in ["Set2", "Pastel1", "Accent", "Set1", "Set3", "Dark2", "Paired", "Pastel2"]
+            )
+        )
 
         # Add extra colors if needed
         if len(merged_groups) > len(self.palette):
@@ -443,7 +453,7 @@ class MultiqcModule(BaseMultiqcModule):
 
         # Assign colors to groups
         self.group_color = {
-            group: color for group, color in zip(merged_groups.keys(), self.palette[:len(merged_groups)])
+            group: color for group, color in zip(merged_groups.keys(), self.palette[: len(merged_groups)])
         }
 
         # Assign colors to samples
@@ -457,17 +467,17 @@ class MultiqcModule(BaseMultiqcModule):
 
         # Copy group colors to run colors
         self.run_color = copy.deepcopy(self.group_color)
-        self.palette = self.palette[len(merged_groups):]
+        self.palette = self.palette[len(merged_groups) :]
 
     def _generate_plots(
         self,
         summary_path: str,
-        run_data: Dict,
-        sample_data: Dict,
-        samples_to_projects: Dict,
-        manifest_data: Dict,
-        index_assignment_data: Dict,
-        unassigned_sequences: Dict,
+        run_data: Dict[str, Any],
+        sample_data: Dict[str, Any],
+        samples_to_projects: Dict[str, str],
+        manifest_data: Dict[str, Any],
+        index_assignment_data: Dict[str, Any],
+        unassigned_sequences: Dict[str, Any],
     ) -> None:
         """Generate all plots and add sections to the report."""
         # QC metrics table
@@ -499,7 +509,7 @@ class MultiqcModule(BaseMultiqcModule):
             project_lookup=samples_to_projects,
         )
 
-    def get_uuid(self):
+    def get_uuid(self) -> str:
         return str(uuid.uuid4()).replace("-", "").lower()
 
     def _extract_run_analysis_name(
@@ -893,9 +903,7 @@ class MultiqcModule(BaseMultiqcModule):
                     sample_expected_seq = occurrence.get("ExpectedSequence")
                     sample_counts = occurrence.get("NumPoloniesBeforeTrimming")
                     if any([element is None for element in [sample_expected_seq, sample_counts, sample_id]]):
-                        log.error(
-                            f"Missing data needed to extract index assignment for sample {sample_id}. Skipping."
-                        )
+                        log.error(f"Missing data needed to extract index assignment for sample {sample_id}. Skipping.")
                         continue
                     if run_analysis_name not in sample_to_index_assignment:
                         sample_to_index_assignment[run_analysis_name] = {}
@@ -1077,14 +1085,16 @@ class MultiqcModule(BaseMultiqcModule):
 
         return sample_to_index_assignment
 
-    def add_run_plots(self, data, plot_functions):
+    def add_run_plots(self, data: Dict[str, Any], plot_functions: List[Callable]) -> None:
         for func in plot_functions:
             plot_html, plot_name, anchor, description, helptext, plot_data = func(data, self.run_color)
             self.add_section(name=plot_name, plot=plot_html, anchor=anchor, description=description, helptext=helptext)
             self.write_data_file(plot_data, f"base2fastq:{plot_name}")
 
-    def add_sample_plots(self, data, group_lookup, project_lookup):
-        plot_functions = [
+    def add_sample_plots(
+        self, data: Dict[str, Any], group_lookup: Dict[str, str], project_lookup: Dict[str, str]
+    ) -> None:
+        plot_functions: List[Callable] = [
             tabulate_sample_stats,
             sequence_content_plot,
             plot_per_cycle_N_content,
