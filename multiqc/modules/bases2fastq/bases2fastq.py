@@ -456,13 +456,19 @@ class MultiqcModule(BaseMultiqcModule):
             group: color for group, color in zip(merged_groups.keys(), self.palette[: len(merged_groups)])
         }
 
-        # Assign colors to samples
+        # Assign colors to samples. Prefer the most meaningful grouping available:
+        # project (when multiple), then run (when multiple), then per-sample.
         self.sample_color: Dict[str, str] = {}
         for sample_name in natsorted(samples_to_projects.keys()):
-            if summary_path == "project_level" or len(project_groups) == 1:
+            if summary_path == "project_level":
                 sample_color = self.group_color[sample_name]
-            else:
+            elif len(project_groups) > 1:
                 sample_color = self.group_color[samples_to_projects[sample_name]]
+            elif len(run_groups) > 1:
+                run_name = sample_name.split("__", maxsplit=1)[0]
+                sample_color = self.group_color[run_name]
+            else:
+                sample_color = self.group_color[sample_name]
             self.sample_color[sample_name] = sample_color
 
         # Copy group colors to run colors
@@ -661,8 +667,9 @@ class MultiqcModule(BaseMultiqcModule):
                     if mask_info["Read"] not in indices:
                         indices.append(mask_info["Read"])
                     indices_cycles.append(str(len(mask_info["Cycles"])))
-            indexing = f"{' + '.join(indices_cycles)}<br>{' + '.join(indices)}"
-            result[run_lane]["Indexing"] = indexing
+            result[run_lane]["Indexing"] = (
+                f"{' + '.join(indices_cycles)} &nbsp; <span class='text-muted'>({' + '.join(indices)})</span>"
+            )
             result[run_lane]["AdapterTrimType"] = lane_data.get("AdapterTrimType", "N/A")
             result[run_lane]["R1AdapterMinimumTrimmedLength"] = lane_data.get("R1AdapterMinimumTrimmedLength", "N/A")
             result[run_lane]["R2AdapterMinimumTrimmedLength"] = lane_data.get("R2AdapterMinimumTrimmedLength", "N/A")

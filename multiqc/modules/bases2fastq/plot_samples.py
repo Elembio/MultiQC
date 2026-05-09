@@ -1,10 +1,64 @@
-from typing import Any, Dict, cast
+from typing import Any, Dict, List, cast
 
 from natsort import natsorted
 
 from multiqc.plots import bargraph, linegraph, table
 from multiqc.plots.table_object import ColumnDict
 from multiqc import config
+
+
+def _drop_low_samples(data: Dict[str, Dict[Any, float]], threshold: float = 0.0) -> List[str]:
+    """Remove samples whose max value is `<= threshold` from `data` in place.
+
+    Useful for hiding lines that would be visually indistinguishable from zero
+    on a 0–100 scale. Returns the natsorted list of removed sample names so the
+    caller can mention them in an alert.
+    """
+    dropped = [s for s, vals in data.items() if not vals or max(vals.values()) <= threshold]
+    for s in dropped:
+        del data[s]
+    return natsorted(dropped)
+
+
+def _filtered_samples_alert(dropped: List[str], metric: str, threshold_label: str) -> str:
+    """Bootstrap alert listing samples removed for being below a threshold.
+
+    `threshold_label` is appended after the metric name in the alert text — e.g.
+    "(all zero)" or "(< 1%)". Long lists are wrapped in <details>.
+    """
+    if not dropped:
+        return ""
+    n = len(dropped)
+    sample_list = ", ".join(f"<code>{s}</code>" for s in dropped)
+    if n > 10:
+        body = (
+            f"<details><summary>Show {n} sample names</summary><p style='margin-top:0.5em'>{sample_list}</p></details>"
+        )
+    else:
+        body = sample_list
+    return (
+        f'<div class="alert alert-info">'
+        f"<strong>{n} sample{'s' if n != 1 else ''}</strong> with negligible {metric} "
+        f"{threshold_label} hidden from plot: {body}"
+        f"</div>"
+    )
+
+
+def _plot_html_with_alert(plot_content, pconfig, base_description, alert):
+    """Pair the linegraph plot with an alert about filtered samples.
+
+    Returns ``(plot_html, description)``. When `plot_content` is empty the
+    alert takes the plot slot so the section still renders — `add_section`
+    gates on plot/content, not description. Otherwise the alert appends to
+    the description with a blank line separator, so markdown treats the
+    ``<div>`` as a sibling block rather than nesting it inside a ``<p>``
+    (which would be invalid HTML and break layout).
+    """
+    if not plot_content:
+        return alert, base_description
+    plot_html = linegraph.plot(plot_content, pconfig=pconfig)
+    description = base_description + (f"\n\n{alert}" if alert else "")
+    return plot_html, description
 
 
 def _sample_has_reads(sample_entry: dict) -> bool:
@@ -307,6 +361,9 @@ def plot_per_cycle_N_content(sample_data, group_lookup_dict, project_lookup_dict
                         }
                     )
 
+    # Drop samples whose every cycle is below 1% — they're invisible on a
+    # 0–100% axis and only add noise to the legend.
+    dropped = _drop_low_samples(data, threshold=1.0)
     plot_content = data
     pconfig = {
         "xlab": "cycle",
@@ -318,13 +375,14 @@ def plot_per_cycle_N_content(sample_data, group_lookup_dict, project_lookup_dict
         "id": "bases2fastq_per_cycle_n_content",
         "title": "bases2fastq: Per Cycle N Content Percentage",
     }
-    plot_html = linegraph.plot(plot_content, pconfig=pconfig)
+    alert = _filtered_samples_alert(dropped, "N content", "(&lt; 1%)")
+    base_description = (
+        'Percentage of unidentified bases ("N" bases) by each sequencing cycle. '
+        "Read 1 and Read 2 are separated by a red dashed line."
+    )
+    plot_html, description = _plot_html_with_alert(plot_content, pconfig, base_description, alert)
     plot_name = "Per Cycle N Content"
     anchor = "n_content"
-    description = """
-    Percentage of unidentified bases ("N" bases) by each sequencing cycle.
-    Read 1 and Read 2 are separated by a red dashed line
-    """
     helptext = """
     If a sequencer is unable to make a base call with sufficient confidence then it will
     normally substitute an `N` rather than a conventional base call. This graph shows the
@@ -458,6 +516,9 @@ def plot_adapter_content(sample_data, group_lookup_dict, project_lookup_dict, sa
                 cycle_no = int(cycle["Cycle"]) + r1r2_split
                 adapter_percent = cycle["PercentReadsTrimmed"]
                 plot_content[s_name].update({cycle_no: adapter_percent})
+    # Drop samples whose every cycle is below 1% — matching the N content
+    # threshold; tiny non-zero values are invisible on a 0–100% axis.
+    dropped = _drop_low_samples(plot_content, threshold=1.0)
     pconfig = {
         "id": "bases2fastq_per_cycle_adapter_content",
         "title": "bases2fastq: Per Cycle Adapter Content",
@@ -468,9 +529,10 @@ def plot_adapter_content(sample_data, group_lookup_dict, project_lookup_dict, sa
     }
     plot_name = "Per Sample Adapter Content"
     pconfig.update({"colors": sample_color})
-    plot_html = linegraph.plot(plot_content, pconfig=pconfig)
+    alert = _filtered_samples_alert(dropped, "adapter content", "(&lt; 1%)")
+    base_description = "Adapter content per cycle. Read 1 and Read 2 are separated by a red dashed line."
+    plot_html, description = _plot_html_with_alert(plot_content, pconfig, base_description, alert)
     anchor = "adapter_content"
-    description = "Adapter content per cycle. Read 1 and Read 2 are separated by a red dashed line."
     helptext = """
     The plot shows a cumulative percentage count of the proportion
     of your library which has seen each of the adapter sequences at each cycle.
